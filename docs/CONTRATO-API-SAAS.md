@@ -41,7 +41,7 @@ Toda chamada vem com o cabeçalho `Authorization: Bearer <SAAS_API_TOKEN>`.
 
 | Método | Caminho | Corpo / query | Resposta |
 |---|---|---|---|
-| GET | `/status` | — | `{ "status_os": ["Recebido", "Em análise", ...], "formas_pagamento": ["pix", "dinheiro", "cartão"], "campos_os": [CAMPO, ...] }` |
+| GET | `/status` | — | `{ "status_os": ["Recebido", "Em análise", ...], "formas_pagamento": ["pix", "dinheiro", "cartão"], "campos_os": [CAMPO, ...], "fornecedores_pecas": ["Nome", ...] }` |
 | GET | `/os` | `?status=&desde=AAAA-MM-DD&busca=&limite=30` | `{ "os": [OS, ...] }` |
 | GET | `/os/:id` | `:id` = id ou número da OS | `{ "os": OS }` |
 | POST | `/os` | `{ "cliente": {"nome", "whatsapp"}, "aparelho": {"marca", "modelo"}, "defeito", "relato", "valor": número ou null }` | `{ "os": OS }` |
@@ -52,7 +52,11 @@ Toda chamada vem com o cabeçalho `Authorization: Bearer <SAAS_API_TOKEN>`.
 | POST | `/os/:id/avisar` | `{ "mensagem": "texto" }` | `{ "enviado": true }` se o sistema enviou pelo WhatsApp dele, ou `{ "enviado": false, "link_whatsapp": "https://wa.me/55...?text=..." }` |
 | GET | `/metas` | — | `{ "metas": [{ "id", "nome", "periodo", "valor_meta", "valor_atual" }] }` |
 | PUT | `/metas/:id` | `{ "valor_meta": número }` | `{ "meta": {...} }` |
-| GET | `/pedidos-pecas` | `?status=` | `{ "pedidos": [{ "id", "fornecedor", "peca", "os_numero", "quantidade", "valor", "status", "previsao", "criado_em" }] }` |
+| GET | `/pedidos-pecas` | `?status=pendente\|cotacao\|pedido` | `{ "pedidos": [PEDIDO] }`, PEDIDO = `{ "id", "loja", "fornecedor", "peca", "os_numero", "quantidade", "valor" (null), "status", "previsao" (null), "criado_em", "enviado_em" }` |
+| POST | `/pedidos-pecas` | `{ "peca": "texto", "quantidade": inteiro ≥ 1, "os_numero": número ou null }` | `{ "pedido": PEDIDO }` (lista "Pedido fornecedor"; a mesma peça ainda não pedida soma a quantidade) |
+| POST | `/pedidos-pecas/:id/remover` | `{}` | `{ "removido": PEDIDO }` |
+| GET | `/pedidos-pecas/mensagem` | `?fornecedor=<um de fornecedores_pecas>&tipo=preco\|pedido` | `{ "fornecedor", "tipo", "mensagem", "pedidos": [PEDIDO] }` (prévia, não envia) |
+| POST | `/pedidos-pecas/enviar` | `{ "fornecedor": "<um de fornecedores_pecas>", "tipo": "preco" ou "pedido" }` | `{ "enviado": true }` se o sistema enviou pelo WhatsApp dele, ou `{ "enviado": false, "link_whatsapp": "https://wa.me/55...?text=..." }`, mais `"fornecedor", "tipo", "mensagem", "pedidos"` (marcados como `cotacao` ou `pedido`) |
 | GET | `/aparelhos` | `?status=&busca=&limite=30` | `{ "aparelhos": [APARELHO, ...] }` (celulares do estoque) |
 | POST | `/aparelhos` | `{ "marca", "modelo", "armazenamento", "cor", "imei", "condicao": "novo" ou "seminovo", "bateria": % ou null, "custo", "preco_venda", "origem": "compra" ou "troca" ou "outro", "fornecedor_ou_cliente", "observacoes" }` | `{ "aparelho": APARELHO }` (entra no estoque no status inicial de aparelhos do sistema, ex.: Preparação) |
 | GET | `/produtos` | `?busca=&limite=30` | `{ "produtos": [{ "id", "loja", "nome", "preco", "estoque" }] }` (acessórios e produtos da Venda de Produtos) |

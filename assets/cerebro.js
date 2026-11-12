@@ -22,7 +22,7 @@
     site_clientes_crm: ['clientes'], relatorio_do_dia: ['nucleo', 'cliques', 'metas'],
     os_listar: ['os'], os_ver: ['os'], os_configuracao: ['os'], os_criar: ['os'], os_editar: ['os'], os_mudar_status: ['os'],
     os_marcar_pago: ['pagamentos'], os_avisar_cliente: ['avisos'], metas_listar: ['metas'], meta_alterar: ['metas'], pecas_listar_pedidos: ['pecas'],
-    estoque_aparelhos: ['os'], produtos_listar: ['pecas'], venda_registrar: ['pagamentos'], vendas_aparelhos: ['pagamentos'], aparelho_cadastrar: ['os'],
+    estoque_aparelhos: ['os'], produtos_listar: ['pecas'], venda_registrar: ['pagamentos'], vendas_aparelhos: ['pagamentos'], pecas_adicionar: ['pecas'], pecas_remover: ['pecas'], pecas_enviar_fornecedor: ['pecas', 'avisos'], aparelho_cadastrar: ['os'],
     whatsapp_enviar: ['nucleo'], whatsapp_crm: ['clientes'], whatsapp_conversa: ['clientes'], relatorio_perdas: ['clientes', 'nucleo'], os_aviso_pronto: ['avisos']
   };
   // cores da Central: amarelo-ouro no preto (AMARELO = linhas, CLARO = rede de dentro, OURO = sistemas)

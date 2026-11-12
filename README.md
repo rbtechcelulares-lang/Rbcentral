@@ -10,7 +10,8 @@ Assistente de gestão com IA (Claude Haiku 5.5) que comanda o **site RB Tech Cel
 | Tirar ou colocar aparelhos na vitrine e publicar | Site |
 | Listar aparelhos e clientes novos do CRM | Site |
 | Criar OS, mudar status, marcar como paga, avisar o cliente | Sistema de OS |
-| Ver e mudar metas, listar pedidos de peças aos fornecedores | Sistema de OS |
+| Ver e mudar metas | Sistema de OS |
+| Lista do fornecedor: colocar e tirar peças, perguntar o preço ou pedir o envio pelo WhatsApp (com Confirmar) | Sistema de OS |
 | Registrar vendas (aparelhos e produtos), com aparelho na troca entrando no estoque | Sistema de OS |
 | Listar as vendas de aparelhos (iPhone e Android), com total e quantidade | Sistema de OS |
 | Cadastrar aparelho no estoque (compra de aparelho) | Sistema de OS |
