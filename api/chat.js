@@ -44,6 +44,7 @@ module.exports = async (req, res) => {
   const client = new Anthropic();
   const conversa = mensagens.slice();
   const acoes = [];
+  const usadas = new Set(); // ferramentas usadas: a tela acende os neurônios desses sistemas
   try {
     for (let rodada = 0; rodada < 8; rodada++) {
       const resp = await client.messages.create({
@@ -54,13 +55,14 @@ module.exports = async (req, res) => {
         tools: ferramentas,
         messages: conversa
       });
-      if (resp.stop_reason === 'refusal') return res.status(200).json({ resposta: 'Não posso ajudar com isso.', acoes });
+      if (resp.stop_reason === 'refusal') return res.status(200).json({ resposta: 'Não posso ajudar com isso.', acoes, usadas: [...usadas] });
       if (resp.stop_reason !== 'tool_use') {
         const texto = resp.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
-        return res.status(200).json({ resposta: texto || 'Pronto.', acoes });
+        return res.status(200).json({ resposta: texto || 'Pronto.', acoes, usadas: [...usadas] });
       }
       conversa.push({ role: 'assistant', content: resp.content });
       const resultados = await Promise.all(resp.content.filter((b) => b.type === 'tool_use').map(async (b) => {
+        usadas.add(b.name);
         try {
           if (f.NOMES_ALTERACAO.has(b.name)) {
             const p = await f.previa(b.name, b.input);
@@ -76,7 +78,7 @@ module.exports = async (req, res) => {
       }));
       conversa.push({ role: 'user', content: resultados });
     }
-    return res.status(200).json({ resposta: 'Essa tarefa ficou grande demais para uma vez só. Pode dividir em partes?', acoes });
+    return res.status(200).json({ resposta: 'Essa tarefa ficou grande demais para uma vez só. Pode dividir em partes?', acoes, usadas: [...usadas] });
   } catch (e) {
     if (e instanceof Anthropic.RateLimitError) return res.status(429).json({ erro: 'Muitas requisições agora. Tente de novo em instantes.' });
     if (e instanceof Anthropic.AuthenticationError) return res.status(500).json({ erro: 'ANTHROPIC_API_KEY inválida.' });

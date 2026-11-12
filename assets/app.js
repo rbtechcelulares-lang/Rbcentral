@@ -13,7 +13,22 @@
   try { itens = JSON.parse(localStorage.getItem(CHAVE_CONVERSA) || '[]'); } catch (e) { itens = []; }
   const guardar = () => { try { localStorage.setItem(CHAVE_CONVERSA, JSON.stringify(itens.slice(-80))); } catch (e) { /* ignora */ } };
 
-  const RAPIDOS = ['📊 Relatório do dia', '👥 Clientes novos do CRM', '🔧 OS abertas', '📦 Pedidos de peças', '🎯 Metas', '📱 Aparelhos na vitrine'];
+  // cérebro: cada neurônio é uma aba de um sistema; tocar nele pede aquilo para a IA
+  let cerebro = null;
+  if (window.RBCerebro) {
+    RBCerebro.criar($('#cerebro-login'), { rotulos: false });
+    cerebro = RBCerebro.criar($('#cerebro-desenho'), { onClick: (a) => enviar(a.pedido) });
+  }
+  const CHAVE_RECOLHIDO = 'rbcentral_cerebro_recolhido';
+  const recolher = (sim) => {
+    $('#cerebro').classList.toggle('recolhido', sim);
+    $('#cb-recolher').setAttribute('aria-expanded', String(!sim));
+    $('#cb-recolher').textContent = sim ? '▾' : '▴';
+    $('#cb-recolher').title = sim ? 'Mostrar o cérebro' : 'Recolher o cérebro';
+    try { localStorage.setItem(CHAVE_RECOLHIDO, sim ? '1' : ''); } catch (e) { /* ignora */ }
+  };
+  $('#cb-recolher').addEventListener('click', () => recolher(!$('#cerebro').classList.contains('recolhido')));
+  try { if (localStorage.getItem(CHAVE_RECOLHIDO)) recolher(true); } catch (e) { /* ignora */ }
 
   async function chamar(caminho, corpo) {
     const r = await fetch('api/' + caminho, {
@@ -38,6 +53,7 @@
     desenhar();
     try {
       const s = await chamar('status');
+      if (cerebro) cerebro.status(s);
       $('#conexoes').innerHTML = [['IA', s.ia], ['Site', s.site], ['CRM', s.crm], ['Sistema de OS', s.sistema_os]]
         .map(([n, on]) => '<span class="con' + (on ? ' on' : '') + '">' + (on ? '● ' : '○ ') + n + '</span>').join('');
     } catch (e) { /* mostrado ao usar */ }
@@ -58,8 +74,6 @@
       }).join('');
     c.querySelectorAll('[data-ok]').forEach((b) => b.addEventListener('click', () => confirmar(Number(b.dataset.ok))));
     c.querySelectorAll('[data-nao]').forEach((b) => b.addEventListener('click', () => { itens[Number(b.dataset.nao)].estado = 'cancelada'; nota('Cancelado: ' + itens[Number(b.dataset.nao)].titulo); }));
-    $('#rapidos').innerHTML = RAPIDOS.map((t) => '<button type="button">' + t + '</button>').join('');
-    $('#rapidos').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => enviar(b.textContent.replace(/^\S+\s/, ''))));
     c.scrollTop = c.scrollHeight;
   }
 
@@ -76,15 +90,18 @@
     ocupado = true; $('#msg').value = '';
     itens.push({ role: 'user', content: texto }); guardar(); desenhar();
     $('#conversa').insertAdjacentHTML('beforeend', '<div class="digitando">RB Central está trabalhando…</div>');
+    if (cerebro) cerebro.pensando(true);
     $('#conversa').scrollTop = $('#conversa').scrollHeight;
     try {
       const d = await chamar('chat', { mensagens: historico() });
+      if (cerebro) cerebro.acender(d.usadas);
       itens.push({ role: 'assistant', content: d.resposta });
       (d.acoes || []).forEach((a) => itens.push({ tipo: 'acao', token: a.token, titulo: a.titulo, linhas: a.linhas }));
     } catch (e) {
       itens.push({ tipo: 'nota', content: '⚠️ ' + e.message });
     }
     ocupado = false; guardar(); desenhar();
+    if (cerebro) cerebro.pensando(false);
   }
 
   async function confirmar(k) {

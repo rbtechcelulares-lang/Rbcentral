@@ -9,11 +9,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/style.css?v=1">
+  <link rel="stylesheet" href="assets/style.css?v=3">
 </head>
 <body>
   <!-- Login -->
   <section id="login" class="login" hidden>
+    <div class="cerebro cerebro-login" id="cerebro-login" aria-hidden="true"></div>
     <form class="login-box" id="login-form">
       <div class="marca">RB <b>Central</b></div>
       <p class="muted">Assistente de gestão da RB Tech. Entre com a <b>mesma senha do admin do site</b>.</p>
@@ -31,14 +32,19 @@
       <button class="btn-mini" id="limpar" title="Nova conversa">Nova conversa</button>
       <button class="btn-mini" id="sair" title="Sair">Sair</button>
     </header>
+    <div class="cerebro" id="cerebro">
+      <button type="button" class="cb-recolher" id="cb-recolher" aria-expanded="true" title="Recolher o cérebro">▴</button>
+      <div class="cerebro-desenho" id="cerebro-desenho"></div>
+      <p class="cb-dica">Toque num neurônio para abrir aquele sistema</p>
+    </div>
     <main class="conversa" id="conversa" aria-live="polite"></main>
-    <div class="rapidos" id="rapidos"></div>
     <form class="enviar" id="enviar">
       <textarea id="msg" rows="1" maxlength="2000" placeholder="O que você precisa?"></textarea>
       <button class="btn btn-ouro" type="submit" aria-label="Enviar">➤</button>
     </form>
   </section>
 
-  <script src="assets/app.js?v=1"></script>
+  <script src="assets/cerebro.js?v=3"></script>
+  <script src="assets/app.js?v=2"></script>
 </body>
 </html>
