@@ -82,10 +82,11 @@ module.exports = async (req, res) => {
       const resultados = await Promise.all(resp.content.filter((b) => b.type === 'tool_use').map(async (b) => {
         usadas.add(b.name);
         try {
+          const dados = f.conferir(b.name, b.input); // sem "strict": os dados são conferidos aqui
           if (b.name === 'whatsapp_enviar') {
             if (acoes.filter((a) => a.whatsapp).length >= 5) throw new Error('limite de 5 mensagens por pedido, para não arriscar bloqueio do WhatsApp da loja. Diga ao dono para pedir o resto depois');
-            const p = equipe.destino(b.input.para, b.input.nome);
-            const msg = String(b.input.mensagem || '').trim().slice(0, 1500);
+            const p = equipe.destino(dados.para, dados.nome);
+            const msg = String(dados.mensagem || '').trim().slice(0, 1500);
             if (!msg) throw new Error('mensagem vazia');
             const link = equipe.link(p.numero, msg);
             const linhas = (p.equipe ? [] : ['Para: ' + p.nome + ' · ' + equipe.formatar(p.numero)]).concat([msg]);
@@ -98,12 +99,12 @@ module.exports = async (req, res) => {
             return { type: 'tool_result', tool_use_id: b.id, content: JSON.stringify({ pronto: true, para: p.nome, aviso: 'Apareceu na tela o botão "Enviar no WhatsApp". Ainda não foi enviado: o dono toca no botão e envia no WhatsApp.' }) };
           }
           if (f.NOMES_ALTERACAO.has(b.name)) {
-            const p = await f.previa(b.name, b.input);
-            const token = auth.selar({ tipo: 'acao', uid: crypto.randomUUID(), nome: b.name, entrada: b.input }, 15);
+            const p = await f.previa(b.name, dados);
+            const token = auth.selar({ tipo: 'acao', uid: crypto.randomUUID(), nome: b.name, entrada: dados }, 15);
             acoes.push({ token, titulo: p.titulo, linhas: p.linhas });
             return { type: 'tool_result', tool_use_id: b.id, content: JSON.stringify({ aguardando_confirmacao: true, titulo: p.titulo, previa: p.linhas, aviso: 'Ainda NÃO foi feito: o dono precisa tocar em Confirmar.' }) };
           }
-          const saida = await f.lerFerramenta(b.name, b.input);
+          const saida = await f.lerFerramenta(b.name, dados);
           return { type: 'tool_result', tool_use_id: b.id, content: JSON.stringify(saida).slice(0, 30000) };
         } catch (e) {
           return { type: 'tool_result', tool_use_id: b.id, content: 'erro: ' + e.message, is_error: true };
