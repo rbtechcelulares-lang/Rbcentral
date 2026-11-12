@@ -11,6 +11,8 @@ Assistente de gestão com IA (Claude Haiku 5.5) que comanda o **site RB Tech Cel
 | Listar aparelhos e clientes novos do CRM | Site |
 | Criar OS, mudar status, marcar como paga, avisar o cliente | Sistema de OS |
 | Ver e mudar metas, listar pedidos de peças aos fornecedores | Sistema de OS |
+| Registrar vendas (aparelhos e produtos), com aparelho na troca entrando no estoque | Sistema de OS |
+| Cadastrar aparelho no estoque (compra de aparelho) | Sistema de OS |
 | Relatório do dia dos dois sistemas | Os dois |
 
 Ele **não** mexe nas configurações do sistema de OS nem da página do site.
@@ -69,6 +71,8 @@ loja, com a `ZAPI_OMNI_KEY`; sem ela, abre o WhatsApp com a mensagem pronta).
 - **Vendas, OS abertas, orçamentos e follow-ups:** o sistema chama `POST /api/evento` e a mensagem
   aparece na mesma faixa. O prompt completo (todos os eventos, inclusive status) está em
   [`docs/PROMPT-EVENTOS.md`](docs/PROMPT-EVENTOS.md).
+- **Vendas e estoque:** para a Central registrar vendas e cadastrar aparelhos, o sistema de OS precisa
+  das rotas de [`docs/PROMPT-VENDAS-ESTOQUE.md`](docs/PROMPT-VENDAS-ESTOQUE.md).
 - **Envio pelo próprio sistema de OS:** para o sistema ter o botão de confirmação dele (envio pela Z-API
   Omni, sem abrir o WhatsApp Web) e os dois não mandarem a mesma mensagem duas vezes, use
   [`docs/PROMPT-SAAS-WHATSAPP.md`](docs/PROMPT-SAAS-WHATSAPP.md).

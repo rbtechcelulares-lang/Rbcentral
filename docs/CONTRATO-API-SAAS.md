@@ -51,6 +51,10 @@ Toda chamada vem com o cabeçalho `Authorization: Bearer <SAAS_API_TOKEN>`.
 | GET | `/metas` | — | `{ "metas": [{ "id", "nome", "periodo", "valor_meta", "valor_atual" }] }` |
 | PUT | `/metas/:id` | `{ "valor_meta": número }` | `{ "meta": {...} }` |
 | GET | `/pedidos-pecas` | `?status=` | `{ "pedidos": [{ "id", "fornecedor", "peca", "os_numero", "quantidade", "valor", "status", "previsao", "criado_em" }] }` |
+| GET | `/aparelhos` | `?status=&busca=&limite=30` | `{ "aparelhos": [APARELHO, ...] }` (celulares do estoque) |
+| POST | `/aparelhos` | `{ "marca", "modelo", "armazenamento", "cor", "imei", "condicao": "novo" ou "seminovo", "bateria": % ou null, "custo", "preco_venda", "origem": "compra" ou "troca" ou "outro", "fornecedor_ou_cliente", "observacoes" }` | `{ "aparelho": APARELHO }` (entra no estoque no status inicial de aparelhos do sistema, ex.: Preparação) |
+| GET | `/produtos` | `?busca=&limite=30` | `{ "produtos": [{ "id", "loja", "nome", "preco", "estoque" }] }` (acessórios e produtos da Venda de Produtos) |
+| POST | `/vendas` | ver **Venda** abaixo | `{ "venda": { "id", "loja", "numero", "total", "criado_em" }, "aparelho_troca": APARELHO ou null }` |
 | GET | `/relatorio` | `?dia=AAAA-MM-DD` (Brasília) | `{ "dia", "os_abertas", "os_criadas_no_dia", "os_concluidas_no_dia", "faturamento_dia", "recebido_dia", "ticket_medio", "pedidos_pecas_pendentes", "metas": [...] }` |
 
 **Aviso de mudança de status (sistema → Central):** quando o status de uma OS da loja
@@ -72,6 +76,34 @@ tipo estão em `docs/PROMPT-EVENTOS.md`. A Central monta a mensagem para o dono 
 Central, a Central chama `POST /api/central/eventos/enviado` com `{ "tipo", "id", "status" }` (o `id` e o
 `tipo` são os que o sistema mandou no evento; em status, `id` é o id da OS) e o sistema responde
 `{ "loja": "rbtechcelulares", "ok": true }`, marcando como enviada para não oferecer de novo.
+
+**APARELHO** = `{ "id", "loja", "marca", "modelo", "armazenamento", "cor", "imei", "condicao", "bateria", "status", "custo", "preco_venda", "entrada_em" }`
+
+**Venda** (`POST /vendas`), igual ao "Vender / troca" e à "Venda de Produtos" do sistema:
+
+```json
+{
+  "cliente": { "nome": "Maria Souza", "whatsapp": "5548988887777" },
+  "itens": [
+    { "tipo": "aparelho", "id": "<id do aparelho do estoque>", "quantidade": 1, "valor": 2900 },
+    { "tipo": "produto", "id": "<id do produto>", "quantidade": 2, "valor": 40 }
+  ],
+  "desconto": 0,
+  "pagamentos": [ { "forma": "pix", "valor": 1700, "parcelas": 1 } ],
+  "troca": { "marca": "Apple", "modelo": "iPhone 11", "armazenamento": "64GB", "cor": "Preto", "imei": "35...", "condicao": "seminovo", "bateria": 85, "valor_avaliado": 1200, "observacoes": "" },
+  "garantia": "90 dias",
+  "observacoes": ""
+}
+```
+
+- `valor` é o preço unitário. `troca` é `null` quando não tem aparelho na troca.
+- O sistema registra a venda como a tela faz: o aparelho vendido sai do estoque (vendido), o estoque
+  dos produtos diminui, e os pagamentos entram no caixa/financeiro.
+- **Aparelho na troca:** entra no estoque de aparelhos (origem "troca", custo = `valor_avaliado`, no
+  status inicial do sistema) e conta como pagamento da venda, com a forma "troca".
+- Se a soma dos pagamentos + o valor da troca não bater com o total (itens − desconto), responda
+  `400 {"erro": "..."}` dizendo a diferença.
+- Aparelho que não está disponível, produto sem estoque ou id de outra loja: `400`/`404` com o motivo.
 
 **OS** = `{ "id", "loja", "numero", "cliente": {"nome", "whatsapp"}, "aparelho": {"marca", "modelo"}, "defeito", "relato", "status", "valor", "pago", "criado_em", "atualizado_em" }`
 
