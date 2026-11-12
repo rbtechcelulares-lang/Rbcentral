@@ -132,7 +132,59 @@
       entrar();
     } catch (er) { $('#login-erro').textContent = er.message; $('#login-erro').hidden = false; }
   });
-  $('#enviar').addEventListener('submit', (e) => { e.preventDefault(); enviar($('#msg').value); });
+  $('#enviar').addEventListener('submit', (e) => { e.preventDefault(); pararVoz(false); enviar($('#msg').value); });
+
+  // ---------- Microfone: fala → texto (português). Enquanto ouve, o cérebro acende em neon ----------
+  const Reconhecimento = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let rec = null, ouvindo = false, enviarAoFim = true, textoBase = '', finalVoz = '';
+  function pararVoz(enviarDepois) {
+    enviarAoFim = !!enviarDepois;
+    if (rec && ouvindo) { try { rec.stop(); } catch (e) { /* ignora */ } }
+  }
+  if (Reconhecimento) {
+    const mic = $('#mic');
+    mic.hidden = false;
+    const marcar = (sim) => {
+      ouvindo = sim;
+      mic.classList.toggle('on', sim);
+      mic.setAttribute('aria-pressed', String(sim));
+      mic.setAttribute('aria-label', sim ? 'Parar de ouvir' : 'Falar com o RB Central');
+      $('#msg').placeholder = sim ? 'Pode falar… estou ouvindo' : 'O que você precisa?';
+      if (cerebro) cerebro.ouvindo(sim);
+      if (sim) $('#cerebro').classList.remove('recolhido');
+    };
+    mic.addEventListener('click', () => {
+      if (ouvindo) { pararVoz(false); return; } // tocar de novo para: o texto fica na caixa, sem enviar
+      if (ocupado) return;
+      rec = new Reconhecimento();
+      rec.lang = 'pt-BR';
+      rec.interimResults = true;
+      rec.continuous = false;
+      textoBase = $('#msg').value.trim(); finalVoz = ''; enviarAoFim = true;
+      rec.onstart = () => marcar(true);
+      rec.onresult = (e) => {
+        let parcial = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          if (e.results[i].isFinal) finalVoz += e.results[i][0].transcript;
+          else parcial += e.results[i][0].transcript;
+        }
+        $('#msg').value = [textoBase, (finalVoz + parcial).trim()].filter(Boolean).join(' ');
+        if (cerebro) cerebro.falando();
+      };
+      rec.onerror = (e) => {
+        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') nota('🎤 O navegador bloqueou o microfone. Libere o microfone para este site nas configurações do navegador.');
+        else if (e.error === 'no-speech') nota('🎤 Não ouvi nada. Toque no microfone e fale de novo.');
+        else if (e.error !== 'aborted') nota('🎤 Não consegui ouvir (' + e.error + ').');
+        enviarAoFim = false;
+      };
+      rec.onend = () => {
+        marcar(false);
+        const texto = $('#msg').value.trim();
+        if (enviarAoFim && finalVoz.trim() && texto) enviar(texto); // parou de falar: envia sozinho
+      };
+      try { rec.start(); } catch (e) { marcar(false); nota('🎤 Não consegui ligar o microfone.'); }
+    });
+  }
   $('#msg').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar($('#msg').value); } });
   $('#sair').addEventListener('click', sair);
   $('#limpar').addEventListener('click', () => { if (confirm('Começar uma conversa nova?')) { itens = []; guardar(); desenhar(); } });

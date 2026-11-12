@@ -89,3 +89,25 @@ body { background: var(--fundo); color: var(--texto); font: 15px/1.5 Manrope, sy
 .cerebro-login { width: min(440px, 94vw); padding: 0; border: 0; pointer-events: none; }
 .cerebro-login .cerebro-svg { width: 100%; height: auto; }
 @media (prefers-reduced-motion: reduce) { .cb-pulso, .cb-pequenos circle, .pensando .cb-nucleo .cb-halo, .cb-no.usado .cb-halo { animation: none; } }
+
+/* ---------- Microfone e cérebro em neon enquanto ouve ---------- */
+.btn-mic { flex: none; width: 48px; border-radius: 14px; border: 1.5px solid var(--borda); background: var(--painel); color: var(--ouro); cursor: pointer; display: grid; place-items: center; transition: background .2s, box-shadow .2s; }
+.btn-mic svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.btn-mic svg rect { fill: currentColor; stroke: none; }
+.btn-mic.on { background: var(--ouro); color: #111; border-color: var(--ouro); box-shadow: 0 0 0 4px rgba(245,197,66,.25), 0 0 22px rgba(245,197,66,.8); animation: mic-pulso 1.2s ease-in-out infinite; }
+@keyframes mic-pulso { 0%, 100% { box-shadow: 0 0 0 3px rgba(245,197,66,.25), 0 0 16px rgba(245,197,66,.6); } 50% { box-shadow: 0 0 0 8px rgba(245,197,66,.12), 0 0 30px rgba(245,197,66,.95); } }
+.cerebro-svg { transition: filter .3s ease; }
+.cerebro-svg.ouvindo { filter: drop-shadow(0 0 6px rgba(245,197,66,.85)) drop-shadow(0 0 18px rgba(255,190,40,.55)); }
+.cerebro-svg.ouvindo .cb-contorno { stroke: #ffe27a; stroke-opacity: .9; stroke-width: 2; fill: rgba(245,197,66,.07); }
+.cerebro-svg.ouvindo .cb-malha line { stroke: #ffe27a; stroke-opacity: .75; stroke-width: 1.1; }
+.cerebro-svg.ouvindo .cb-pequenos circle { fill: #fff1b0; opacity: 1; animation-duration: 1s; }
+.cerebro-svg.ouvindo .cb-fio { stroke: #ffe27a; stroke-opacity: .95; stroke-width: 2.6; }
+.cerebro-svg.ouvindo .cb-conexao.off .cb-fio { stroke-opacity: .45; }
+.cerebro-svg.ouvindo .cb-pulso { animation-duration: .9s; stroke: #fff; }
+.cerebro-svg.ouvindo .cb-corpo { fill: #ffe27a; }
+.cerebro-svg.ouvindo .cb-no.off .cb-corpo { fill: #6b5a2a; }
+.cerebro-svg.ouvindo .cb-halo { opacity: .35; }
+.cerebro-svg.ouvindo .cb-nucleo .cb-halo { opacity: .6; animation: cb-acender .7s ease-in-out infinite; }
+.cerebro-svg.falando { filter: drop-shadow(0 0 10px rgba(255,226,122,1)) drop-shadow(0 0 30px rgba(255,190,40,.85)); }
+.cerebro-svg.falando .cb-nucleo .cb-corpo { filter: drop-shadow(0 0 16px rgba(255,226,122,1)); }
+@media (prefers-reduced-motion: reduce) { .btn-mic.on, .cerebro-svg.ouvindo .cb-nucleo .cb-halo { animation: none; } }

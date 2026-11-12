@@ -122,6 +122,13 @@
         });
       },
       pensando(sim) { svg.classList.toggle('pensando', !!sim); },
+      // microfone ligado: o cérebro inteiro acende em neon
+      ouvindo(sim) { svg.classList.toggle('ouvindo', !!sim); if (!sim) svg.classList.remove('falando'); },
+      // a cada trecho de voz reconhecido o brilho dá um pulso mais forte
+      falando() {
+        svg.classList.remove('falando'); void svg.getBBox(); svg.classList.add('falando');
+        clearTimeout(svg._falando); svg._falando = setTimeout(() => svg.classList.remove('falando'), 450);
+      },
       // acende por alguns segundos os neurônios das ferramentas que a IA usou
       acender(ferramentas) {
         const ids = new Set();
