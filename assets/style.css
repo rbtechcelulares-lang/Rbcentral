@@ -202,3 +202,5 @@ body { background: var(--fundo); color: var(--texto); font: 15px/1.5 Manrope, sy
 .acao.zap .zap-msg { white-space: pre-wrap; background: #0f1a12; border: 1px solid #1f3a27; border-radius: 12px; padding: 10px 12px; margin: 6px 0 10px; line-height: 1.45; }
 .acao.zap .btn-zap { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; background: #25d366; color: #0b1f12; }
 .acao.zap.aberta { opacity: .85; }
+.acao li { white-space: pre-wrap; }
+.acao .btn-zap { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; background: #25d366; color: #0b1f12; }

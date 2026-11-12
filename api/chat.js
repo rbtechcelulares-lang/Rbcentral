@@ -6,6 +6,7 @@ const auth = require('../lib/auth');
 const f = require('../lib/ferramentas');
 const rb = require('../lib/rb');
 const equipe = require('../lib/equipe');
+const whatsapp = require('../lib/whatsapp');
 
 const MODELO = 'claude-haiku-5-5';
 const MAX_MENSAGENS = 20;
@@ -31,7 +32,7 @@ const SISTEMA = [
   '- Para avisar um cliente, escreva uma mensagem curta, educada e com o nome dele, dizendo o que mudou (ex.: aparelho pronto para retirada).',
   '- Você não altera configurações do sistema de OS nem do site além das ferramentas que tem; se pedirem, diga que isso é feito no painel do sistema.',
   '- Relatório do dia: use relatorio_do_dia. Um grupo por sistema (**Site** e **Sistema de OS**), números como itens ("- Visitas · 120", "- Faturamento · R$ 1.250,00"), depois **Atenção** com no máximo 3 itens. Se um sistema não estiver configurado, diga isso em uma linha.',
-  '- Mensagem para a equipe ("manda pro funcionário", "avisa o Nizael", "fala pro Nizael que…", "manda isso pro Nizael"): use equipe_mandar_mensagem. Escreva a mensagem pronta como se fosse o dono falando: curta, clara, com saudação pelo nome e o que a pessoa precisa fazer. Se o pedido citar OS, cliente, aparelho, peça ou "isso" (algo da conversa), use os dados certos: consulte as ferramentas antes e inclua número da OS, cliente, aparelho, defeito e prazo quando fizer sentido. Não invente dados. Depois diga em uma frase que é só tocar em "Enviar no WhatsApp".',
+  '- Mensagem para a equipe ("manda pro funcionário", "avisa o Nizael", "fala pro Nizael que…", "manda isso pro Nizael"): use equipe_mandar_mensagem. Escreva a mensagem pronta como se fosse o dono falando: curta, clara, com saudação pelo nome e o que a pessoa precisa fazer. Se o pedido citar OS, cliente, aparelho, peça ou "isso" (algo da conversa), use os dados certos: consulte as ferramentas antes e inclua número da OS, cliente, aparelho, defeito e prazo quando fizer sentido. Não invente dados. Depois diga em uma frase qual botão tocar, conforme o aviso que a ferramenta devolver ("Confirmar" ou "Enviar no WhatsApp").',
   '- Valores em reais no formato R$ 1.234,00. Datas e "hoje" no horário de Brasília.'
 ].join('\n');
 
@@ -80,7 +81,13 @@ module.exports = async (req, res) => {
             const p = equipe.achar(b.input.para);
             const msg = String(b.input.mensagem || '').trim().slice(0, 1500);
             if (!msg) throw new Error('mensagem vazia');
-            acoes.push({ tipo: 'whatsapp', titulo: 'WhatsApp para ' + p.nome, linhas: [msg], link: equipe.link(p.numero, msg) });
+            const link = equipe.link(p.numero, msg);
+            if (whatsapp.ok()) { // API oficial ligada: sai sozinho depois do "Confirmar" (o botão manual fica de reserva)
+              const token = auth.selar({ tipo: 'acao', uid: crypto.randomUUID(), nome: 'equipe_mandar_mensagem', entrada: { nome: p.nome, numero: p.numero, mensagem: msg } }, 15);
+              acoes.push({ token, titulo: 'Enviar WhatsApp para ' + p.nome, linhas: [msg], link });
+              return { type: 'tool_result', tool_use_id: b.id, content: JSON.stringify({ aguardando_confirmacao: true, para: p.nome, aviso: 'Ainda NÃO foi enviado: o dono toca em "Confirmar" e a mensagem sai sozinha pelo WhatsApp da loja.' }) };
+            }
+            acoes.push({ tipo: 'whatsapp', titulo: 'WhatsApp para ' + p.nome, linhas: [msg], link });
             return { type: 'tool_result', tool_use_id: b.id, content: JSON.stringify({ pronto: true, para: p.nome, aviso: 'Apareceu na tela o botão "Enviar no WhatsApp". Ainda não foi enviado: o dono toca no botão e envia no WhatsApp.' }) };
           }
           if (f.NOMES_ALTERACAO.has(b.name)) {

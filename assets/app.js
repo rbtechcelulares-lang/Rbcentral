@@ -273,7 +273,9 @@
           return '<div class="acao ' + (it.estado || '') + '" data-k="' + k + '"><h4>' + (it.estado === 'feita' ? '✅ ' : it.estado === 'cancelada' ? '✖ ' : it.estado === 'falhou' ? '⚠️ ' : it.estado === 'expirada' ? '⌛ ' : '⏳ ') + esc(it.titulo) + '</h4>' +
             '<ul>' + (it.linhas || []).map((l) => '<li>' + esc(l) + '</li>').join('') + '</ul>' +
             (it.resultado ? '<div class="muted">' + fmt(it.resultado) + '</div>' : '') +
-            (!it.estado ? '<div class="botoes"><button class="btn ok" data-ok="' + k + '">Confirmar</button><button class="btn nao" data-nao="' + k + '">Cancelar</button></div>' : '') + '</div>';
+            (!it.estado ? '<div class="botoes"><button class="btn ok" data-ok="' + k + '">Confirmar</button><button class="btn nao" data-nao="' + k + '">Cancelar</button></div>' : '') +
+            // se o envio automático do WhatsApp falhar, dá para mandar na mão
+            (it.estado === 'falhou' && /^https:\/\/wa\.me\/\d+\?text=/.test(it.link || '') ? '<div class="botoes"><a class="btn ok btn-zap" href="' + esc(it.link) + '" target="_blank" rel="noopener">Enviar pelo WhatsApp na mão</a></div>' : '') + '</div>';
         }
         if (it.tipo === 'zap') {
           const seguro = /^https:\/\/wa\.me\/\d+\?text=/.test(it.link || '') ? it.link : '';
@@ -336,7 +338,7 @@
       lista.push(novaResposta);
       (d.acoes || []).forEach((a) => lista.push(a.tipo === 'whatsapp'
         ? { tipo: 'zap', titulo: a.titulo, linhas: a.linhas, link: a.link }
-        : { tipo: 'acao', token: a.token, titulo: a.titulo, linhas: a.linhas, em: Date.now() }));
+        : { tipo: 'acao', token: a.token, titulo: a.titulo, linhas: a.linhas, em: Date.now(), link: a.link }));
     } catch (e) {
       lista.push({ tipo: 'nota', content: '⚠️ ' + e.message });
     }
