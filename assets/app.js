@@ -741,5 +741,107 @@
   }
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#hist').hidden) fecharHistorico(); });
 
+  // ---------- CRM do WhatsApp: clientes que conversaram com o WhatsApp da loja ----------
+  const ETAPA_NOME = { novo: 'Novo', em_atendimento: 'Em atendimento', orcamento: 'Orçamento', negociando: 'Negociando', comprou: 'Comprou', perdido: 'Perdido', pos_venda: 'Pós-venda' };
+  let crmFiltro = 'sem_resposta', crmLista = [], crmBuscaTimer = null;
+  const fone = (n) => { const m = String(n || '').match(/^55(\d{2})(\d{4,5})(\d{4})$/); return m ? '+55 ' + m[1] + ' ' + m[2] + '-' + m[3] : '+' + n; };
+  const haQuanto = (t) => {
+    const min = Math.round((Date.now() - new Date(t).getTime()) / 60000);
+    if (min < 1) return 'agora';
+    if (min < 60) return 'há ' + min + ' min';
+    if (min < 24 * 60) return 'há ' + Math.round(min / 60) + ' h';
+    return quando(t);
+  };
+  const reais = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  function cartaoCrm(c) {
+    const esperando = c.ultima_de === 'cliente';
+    return '<li class="crm-item" data-numero="' + esc(c.numero) + '">' +
+      '<div class="crm-topo"><b>' + esc(c.nome || fone(c.numero)) + '</b><span class="crm-etapa etapa-' + esc(c.etapa) + '">' + esc(ETAPA_NOME[c.etapa] || c.etapa) + '</span></div>' +
+      '<div class="crm-sub">' + esc(fone(c.numero)) + ' · ' + esc(haQuanto(c.ultimo_contato)) + (esperando ? ' · <span class="crm-esperando">esperando resposta</span>' : '') + '</div>' +
+      (c.interesse ? '<div class="crm-interesse">📱 ' + esc(c.interesse) + (Number(c.valor) > 0 ? ' · ' + reais(c.valor) : '') + '</div>' : '') +
+      (c.resumo ? '<div class="crm-resumo">' + esc(c.resumo) + '</div>' : (c.msgs_novas > 0 ? '<div class="crm-resumo muted">A IA ainda vai ler esta conversa…</div>' : '')) +
+      (c.proxima_acao ? '<div class="crm-acao">➡️ ' + esc(c.proxima_acao) + '</div>' : '') +
+      (c.ultima_msg ? '<div class="crm-ultima">' + (esperando ? 'Cliente' : 'Loja') + ': “' + esc(c.ultima_msg) + '”</div>' : '') +
+      '<div class="crm-botoes"><button type="button" class="btn-mini" data-crm-ver>Ver conversa</button><button type="button" class="btn-mini crm-responder" data-crm-responder>Responder com a IA</button></div>' +
+      '<div class="crm-conversa" hidden></div></li>';
+  }
+  function desenharCrm(d) {
+    const ativo = !!(d && d.ativo);
+    $('#crm-ligar').hidden = !ativo;
+    if (!ativo) {
+      $('#crm-lista').innerHTML = '<li class="hist-vazio">Para o CRM ler o WhatsApp da loja, a Z-API Omni precisa estar ligada na Vercel (ZAPI_OMNI_KEY e ZAPI_OMNI_CANAL), e o SQL rodado no Supabase.</li>';
+      return;
+    }
+    if (d.motivo) { $('#crm-lista').innerHTML = '<li class="hist-vazio">Não consegui abrir o CRM: ' + esc(d.motivo) + '</li>'; return; }
+    $('#crm-lista').innerHTML = crmLista.length ? crmLista.map(cartaoCrm).join('')
+      : '<li class="hist-vazio">' + (crmFiltro === 'sem_resposta' ? 'Ninguém esperando resposta. 👍' : 'Nenhuma conversa ainda. Toque em "Ligar a leitura do WhatsApp" e as mensagens novas vão aparecendo aqui.') + '</li>';
+  }
+  async function carregarCrm(analisar) {
+    const busca = $('#crm-busca').value.trim();
+    try {
+      const d = await chamar('crm?filtro=' + encodeURIComponent(crmFiltro) + '&busca=' + encodeURIComponent(busca));
+      crmLista = Array.isArray(d.contatos) ? d.contatos : [];
+      desenharCrm(d);
+      // a IA lê as conversas com mensagens novas e atualiza as fichas
+      if (analisar && d.ativo && crmLista.some((c) => c.msgs_novas > 0)) {
+        const a = await chamar('crm', { acao: 'analisar' }).catch(() => ({}));
+        if (a.analisados > 0 && !$('#crm').hidden) carregarCrm(false);
+      }
+    } catch (e) {
+      $('#crm-lista').innerHTML = '<li class="hist-vazio">Não consegui abrir o CRM: ' + esc(e.message) + '</li>';
+    }
+  }
+  function abrirCrm() {
+    $('#crm').hidden = false;
+    $('#crm-btn').setAttribute('aria-expanded', 'true');
+    $('#crm-lista').innerHTML = '<li class="hist-vazio">Carregando…</li>';
+    carregarCrm(true);
+  }
+  function fecharCrm() { $('#crm').hidden = true; $('#crm-btn').setAttribute('aria-expanded', 'false'); }
+  $('#crm-btn').addEventListener('click', () => ($('#crm').hidden ? abrirCrm() : fecharCrm()));
+  $('#crm-busca').addEventListener('input', () => { clearTimeout(crmBuscaTimer); crmBuscaTimer = setTimeout(() => carregarCrm(false), 350); });
+  $('#crm').addEventListener('click', async (e) => {
+    if (e.target.closest('[data-fechar-crm]')) return fecharCrm();
+    const aba = e.target.closest('[data-crm-filtro]');
+    if (aba) {
+      crmFiltro = aba.dataset.crmFiltro;
+      document.querySelectorAll('.crm-aba').forEach((b) => b.classList.toggle('on', b === aba));
+      $('#crm-lista').innerHTML = '<li class="hist-vazio">Carregando…</li>';
+      return carregarCrm(true);
+    }
+    if (e.target.closest('#crm-ligar')) {
+      const b = $('#crm-ligar');
+      b.disabled = true; b.textContent = 'Ligando…';
+      try {
+        const d = await chamar('crm', { acao: 'ligar' });
+        b.textContent = d.atualizado ? '✅ Leitura do WhatsApp já estava ligada (atualizada)' : '✅ Leitura do WhatsApp ligada: as mensagens novas vão chegar aqui';
+      } catch (er) { b.textContent = 'Tentar de novo: ' + er.message; }
+      b.disabled = false;
+      return;
+    }
+    const item = e.target.closest('.crm-item');
+    if (!item) return;
+    const numero = item.dataset.numero;
+    const c = crmLista.find((x) => x.numero === numero) || {};
+    if (e.target.closest('[data-crm-responder]')) {
+      fecharCrm();
+      $('#msg').value = 'Leia a conversa de WhatsApp com ' + (c.nome || fone(numero)) + ' (' + numero + ') e prepare uma resposta para eu confirmar.';
+      crescer(); $('#msg').focus();
+      return;
+    }
+    if (e.target.closest('[data-crm-ver]')) {
+      const box = item.querySelector('.crm-conversa');
+      if (!box.hidden) { box.hidden = true; return; }
+      box.hidden = false; box.innerHTML = '<p class="muted">Carregando…</p>';
+      try {
+        const d = await chamar('crm', { acao: 'conversa', numero });
+        const msgs = (d && d.mensagens) || [];
+        box.innerHTML = msgs.length ? msgs.map((m) => '<div class="crm-msg ' + (m.de_mim ? 'loja' : 'cliente') + '"><span>' + fmt(m.texto) + '</span><small>' + esc(quando(m.criado)) + '</small></div>').join('') : '<p class="muted">Sem mensagens guardadas.</p>';
+        box.scrollTop = box.scrollHeight;
+      } catch (er) { box.innerHTML = '<p class="muted">' + esc(er.message) + '</p>'; }
+    }
+  });
+  addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#crm').hidden) fecharCrm(); });
+
   if (token) entrar(); else $('#login').hidden = false;
 })();

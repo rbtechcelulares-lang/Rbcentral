@@ -1,5 +1,5 @@
 -- RB Central · histórico das 6 últimas conversas (o mesmo no iPhone e no computador)
--- e contador diário de uso, e avisos de status de OS esperando confirmação.
+-- contador diário de uso, avisos de status de OS esperando confirmação e o CRM do WhatsApp.
 -- Rode no Supabase do SITE (o mesmo do CRM): SQL Editor › New query › cole tudo › Run.
 -- Precisa do clientes.sql do site já rodado (usa a mesma chave do painel).
 -- Pode rodar de novo sem perder nada.
@@ -190,3 +190,144 @@ end;
 $$;
 revoke all on function public.central_aviso_marcar(text, text, text, text) from public;
 grant execute on function public.central_aviso_marcar(text, text, text, text) to anon, authenticated;
+
+-- ---------------------------------------------------------------------------------------------
+-- CRM do WhatsApp: as conversas do WhatsApp da loja (chegam pela Z-API) e a ficha de cada cliente,
+-- que a IA da Central mantém (etapa, interesse, resumo, próximo passo). Mensagens ficam 90 dias.
+create table if not exists public.central_wa_contatos (
+  numero text primary key check (numero ~ '^[0-9]{10,15}$'),
+  nome text check (char_length(nome) <= 80),
+  primeiro_contato timestamptz not null default now(),
+  ultimo_contato timestamptz not null default now(),
+  ultima_msg text check (char_length(ultima_msg) <= 300),
+  ultima_de text check (ultima_de in ('cliente', 'loja')),
+  msgs_novas integer not null default 0,
+  etapa text not null default 'novo' check (etapa in ('novo', 'em_atendimento', 'orcamento', 'negociando', 'comprou', 'perdido', 'pos_venda')),
+  interesse text check (char_length(interesse) <= 200),
+  resumo text check (char_length(resumo) <= 600),
+  proxima_acao text check (char_length(proxima_acao) <= 200),
+  valor numeric check (valor >= 0),
+  analisado timestamptz
+);
+create index if not exists central_wa_contatos_ultimo_idx on public.central_wa_contatos (ultimo_contato desc);
+create table if not exists public.central_wa_mensagens (
+  id text primary key check (char_length(id) between 1 and 80),
+  numero text not null references public.central_wa_contatos (numero) on delete cascade,
+  de_mim boolean not null,
+  texto text not null check (char_length(texto) <= 4000),
+  criado timestamptz not null default now()
+);
+create index if not exists central_wa_mensagens_numero_idx on public.central_wa_mensagens (numero, criado desc);
+alter table public.central_wa_contatos enable row level security;
+alter table public.central_wa_mensagens enable row level security;
+revoke all on public.central_wa_contatos from anon, authenticated;
+revoke all on public.central_wa_mensagens from anon, authenticated;
+
+-- Guarda uma mensagem (a mesma mensagem duas vezes não conta de novo)
+create or replace function public.central_wa_registrar(chave text, p_id text, p_numero text, p_nome text, p_de_mim boolean, p_texto text, p_quando timestamptz)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v text;
+begin
+  perform painel_checar(chave);
+  insert into central_wa_contatos (numero, nome, primeiro_contato, ultimo_contato)
+  values (p_numero, case when p_de_mim or trim(coalesce(p_nome, '')) ~ '^[0-9+ ()-]*$' then null else left(trim(p_nome), 80) end, p_quando, p_quando)
+  on conflict (numero) do nothing;
+  insert into central_wa_mensagens (id, numero, de_mim, texto, criado)
+  values (p_id, p_numero, p_de_mim, left(p_texto, 4000), p_quando)
+  on conflict (id) do nothing
+  returning id into v;
+  if v is null then return; end if;
+  update central_wa_contatos set
+    nome = case when not p_de_mim and nullif(trim(p_nome), '') is not null and trim(p_nome) !~ '^[0-9+ ()-]+$' then left(trim(p_nome), 80) else nome end,
+    ultimo_contato = greatest(ultimo_contato, p_quando),
+    ultima_msg = case when p_quando >= ultimo_contato then left(p_texto, 300) else ultima_msg end,
+    ultima_de = case when p_quando >= ultimo_contato then (case when p_de_mim then 'loja' else 'cliente' end) else ultima_de end,
+    msgs_novas = msgs_novas + 1
+  where numero = p_numero;
+  if random() < 0.02 then
+    delete from central_wa_mensagens where criado < now() - interval '90 days';
+    delete from central_wa_contatos c where c.ultimo_contato < now() - interval '90 days';
+  end if;
+end;
+$$;
+revoke all on function public.central_wa_registrar(text, text, text, text, boolean, text, timestamptz) from public;
+grant execute on function public.central_wa_registrar(text, text, text, text, boolean, text, timestamptz) to anon, authenticated;
+
+-- Lista os contatos: p_filtro = 'todos' | 'sem_resposta' | 'para_analisar' | uma etapa; p_busca procura em nome, número, interesse e resumo
+create or replace function public.central_wa_listar(chave text, p_filtro text, p_busca text, p_limite integer)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform painel_checar(chave);
+  return coalesce((
+    select jsonb_agg(to_jsonb(x) order by x.ultimo_contato desc)
+    from (
+      select numero, nome, primeiro_contato, ultimo_contato, ultima_msg, ultima_de, msgs_novas, etapa, interesse, resumo, proxima_acao, valor, analisado
+      from central_wa_contatos
+      where (coalesce(p_filtro, 'todos') = 'todos'
+          or (p_filtro = 'sem_resposta' and ultima_de = 'cliente')
+          or (p_filtro = 'para_analisar' and msgs_novas > 0)
+          or etapa = p_filtro)
+        and (coalesce(p_busca, '') = ''
+          or concat_ws(' ', nome, numero, interesse, resumo, ultima_msg) ilike '%' || p_busca || '%'
+          or exists (select 1 from central_wa_mensagens m where m.numero = central_wa_contatos.numero and m.texto ilike '%' || p_busca || '%'))
+      order by ultimo_contato desc
+      limit least(greatest(coalesce(p_limite, 30), 1), 100)
+    ) x
+  ), '[]'::jsonb);
+end;
+$$;
+revoke all on function public.central_wa_listar(text, text, text, integer) from public;
+grant execute on function public.central_wa_listar(text, text, text, integer) to anon, authenticated;
+
+-- A ficha e as últimas mensagens de um contato (da mais antiga para a mais nova)
+create or replace function public.central_wa_conversa(chave text, p_numero text, p_limite integer)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform painel_checar(chave);
+  return jsonb_build_object(
+    'contato', (select to_jsonb(c) from central_wa_contatos c where c.numero = p_numero),
+    'mensagens', coalesce((
+      select jsonb_agg(jsonb_build_object('de_mim', m.de_mim, 'texto', m.texto, 'criado', m.criado) order by m.criado)
+      from (select * from central_wa_mensagens where numero = p_numero order by criado desc limit least(greatest(coalesce(p_limite, 30), 1), 80)) m
+    ), '[]'::jsonb)
+  );
+end;
+$$;
+revoke all on function public.central_wa_conversa(text, text, integer) from public;
+grant execute on function public.central_wa_conversa(text, text, integer) to anon, authenticated;
+
+-- A IA atualiza a ficha do contato
+create or replace function public.central_wa_salvar_analise(chave text, p_numero text, p_dados jsonb)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform painel_checar(chave);
+  update central_wa_contatos set
+    etapa = case when p_dados->>'etapa' in ('novo', 'em_atendimento', 'orcamento', 'negociando', 'comprou', 'perdido', 'pos_venda') then p_dados->>'etapa' else etapa end,
+    interesse = left(nullif(p_dados->>'interesse', ''), 200),
+    resumo = left(nullif(p_dados->>'resumo', ''), 600),
+    proxima_acao = left(nullif(p_dados->>'proxima_acao', ''), 200),
+    valor = case when (p_dados->>'valor') ~ '^[0-9]+(\.[0-9]+)?$' and (p_dados->>'valor')::numeric > 0 then (p_dados->>'valor')::numeric else null end,
+    msgs_novas = 0,
+    analisado = now()
+  where numero = p_numero;
+end;
+$$;
+revoke all on function public.central_wa_salvar_analise(text, text, jsonb) from public;
+grant execute on function public.central_wa_salvar_analise(text, text, jsonb) to anon, authenticated;

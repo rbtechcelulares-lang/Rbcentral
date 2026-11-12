@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/style.css?v=12">
+  <link rel="stylesheet" href="assets/style.css?v=13">
 </head>
 <body>
   <!-- Login -->
@@ -30,6 +30,7 @@
       <div class="marca">RB <b>Central</b></div>
       <div class="conexoes" id="conexoes"></div>
       <div class="topo-acoes">
+        <button class="btn-mini" id="crm-btn" title="CRM do WhatsApp" aria-label="CRM do WhatsApp" aria-expanded="false" aria-controls="crm"><span class="ic">📇</span><span class="tx">CRM</span></button>
         <button class="btn-mini" id="hist-btn" title="Últimas conversas" aria-label="Últimas conversas" aria-expanded="false" aria-controls="hist"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1M3.5 4v4h4M12 7.5V12l3 2"/></svg></span><span class="tx">Conversas</span></button>
         <button class="btn-mini" id="limpar" title="Nova conversa" aria-label="Nova conversa"><span class="ic">＋</span><span class="tx">Nova conversa</span></button>
         <button class="btn-mini" id="sair" title="Sair">Sair</button>
@@ -51,6 +52,21 @@
       <p class="cb-dica">Toque num neurônio para abrir aquele sistema</p>
     </div>
     <button type="button" class="avisos-barra" id="avisos-barra" hidden>📣 <span id="avisos-n">mensagens para confirmar</span> <span class="avisos-ver">ver</span></button>
+    <div class="hist" id="crm" hidden>
+      <div class="hist-fundo" data-fechar-crm></div>
+      <div class="hist-painel crm-painel" role="dialog" aria-label="CRM do WhatsApp">
+        <div class="hist-topo"><b>📇 CRM do WhatsApp</b><button type="button" class="btn-mini" data-fechar-crm aria-label="Fechar">✕</button></div>
+        <div class="crm-abas" role="tablist">
+          <button type="button" class="crm-aba on" data-crm-filtro="sem_resposta">Esperando resposta</button>
+          <button type="button" class="crm-aba" data-crm-filtro="todos">Todos</button>
+          <button type="button" class="crm-aba" data-crm-filtro="negociando">Negociando</button>
+        </div>
+        <input type="search" id="crm-busca" class="crm-busca" placeholder="Procurar nome, número, produto…" autocomplete="off">
+        <ul class="crm-lista" id="crm-lista"></ul>
+        <p class="hist-nota" id="crm-nota">As conversas do WhatsApp da loja chegam pela Z-API, e a IA monta a ficha de cada cliente.</p>
+        <button type="button" class="hist-sql" id="crm-ligar" hidden>Ligar a leitura do WhatsApp</button>
+      </div>
+    </div>
     <div class="hist" id="avisos" hidden>
       <div class="hist-fundo" data-fechar-avisos></div>
       <div class="hist-painel" role="dialog" aria-label="Mensagens para confirmar">
@@ -69,7 +85,7 @@
     </form>
   </section>
 
-  <script src="assets/cerebro.js?v=6"></script>
-  <script src="assets/app.js?v=14"></script>
+  <script src="assets/cerebro.js?v=7"></script>
+  <script src="assets/app.js?v=15"></script>
 </body>
 </html>

@@ -13,6 +13,7 @@ module.exports = async (req, res) => {
     crm: rb.githubOk() && rb.supabaseOk(),
     sistema_os: saas.ok(),
     voz: !!String(process.env.GROQ_API_KEY || '').trim(), // microfone com transcrição Whisper no servidor
-    whatsapp: whatsapp.ok() // envio automático pela API oficial do WhatsApp
+    whatsapp: whatsapp.ok(), // envio automático de WhatsApp (Z-API ou Meta)
+    crm_whatsapp: require('../lib/crm-whatsapp').ativo() // CRM das conversas do WhatsApp
   });
 };

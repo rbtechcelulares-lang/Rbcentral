@@ -215,3 +215,34 @@ body { background: var(--fundo); color: var(--texto); font: 15px/1.5 Manrope, sy
 .acao.aviso .aviso-para { font-size: 12.5px; color: var(--apagado); margin-top: 2px; }
 .acao.aviso .zap-msg { white-space: pre-wrap; background: #0f1a12; border: 1px solid #1f3a27; border-radius: 12px; padding: 10px 12px; margin: 6px 0 10px; line-height: 1.45; }
 .acao.aviso.enviado, .acao.aviso.descartado { opacity: .8; }
+
+/* ---------- CRM do WhatsApp ---------- */
+.crm-painel { width: min(460px, calc(100% - 32px)); }
+.crm-abas { display: flex; gap: 6px; flex-wrap: wrap; }
+.crm-aba { border: 1px solid var(--borda); background: transparent; color: var(--apagado); border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.crm-aba.on { border-color: var(--ouro); color: #111; background: var(--ouro); }
+.crm-busca { width: 100%; background: #0f0e0c; border: 1.5px solid var(--borda); color: var(--texto); border-radius: 12px; padding: 10px 12px; font: inherit; font-size: 16px; }
+.crm-busca:focus { outline: 0; border-color: var(--ouro); }
+.crm-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.crm-item { border: 1px solid var(--borda); border-radius: 14px; padding: 10px 12px; background: rgba(255,255,255,.02); display: grid; gap: 4px; }
+.crm-topo { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.crm-topo b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.crm-etapa { flex: none; font-size: 11.5px; font-weight: 800; border-radius: 999px; padding: 2px 9px; background: #2b2620; color: var(--apagado); }
+.crm-etapa.etapa-novo { background: rgba(245,197,66,.15); color: var(--ouro); }
+.crm-etapa.etapa-orcamento, .crm-etapa.etapa-negociando { background: rgba(255,106,0,.15); color: #ff9a4d; }
+.crm-etapa.etapa-comprou, .crm-etapa.etapa-pos_venda { background: rgba(47,191,113,.15); color: var(--ok); }
+.crm-etapa.etapa-perdido { background: rgba(255,122,106,.12); color: var(--erro); }
+.crm-sub { font-size: 12px; color: var(--apagado); }
+.crm-esperando { color: #fbe38e; font-weight: 700; }
+.crm-interesse { font-weight: 700; font-size: 14px; }
+.crm-resumo { font-size: 13.5px; line-height: 1.4; }
+.crm-acao { font-size: 13px; color: var(--ouro); }
+.crm-ultima { font-size: 12.5px; color: var(--apagado); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.crm-botoes { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.crm-responder { color: var(--ouro); border-color: rgba(245,197,66,.5); }
+.crm-conversa { max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin-top: 6px; padding: 8px; border-radius: 12px; background: #0f0e0c; }
+.crm-msg { max-width: 85%; padding: 6px 10px; border-radius: 12px; font-size: 13.5px; line-height: 1.35; display: grid; gap: 2px; white-space: pre-wrap; }
+.crm-msg small { font-size: 10.5px; opacity: .65; }
+.crm-msg.cliente { align-self: flex-start; background: var(--painel); border: 1px solid var(--borda); }
+.crm-msg.loja { align-self: flex-end; background: #134d2e; }
+@media (max-width: 760px) { .crm-painel { width: 100%; } }

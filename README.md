@@ -74,6 +74,20 @@ loja, com a `ZAPI_OMNI_KEY`; sem ela, abre o WhatsApp com a mensagem pronta).
   [`docs/PROMPT-SAAS-WHATSAPP.md`](docs/PROMPT-SAAS-WHATSAPP.md).
 - Precisa do SQL (`supabase/central_conversas.sql`) rodado no Supabase do site.
 
+## CRM do WhatsApp
+
+A Central lê as conversas do WhatsApp da loja e monta um CRM: a Z-API Omni manda cada mensagem para
+`POST /api/whatsapp-webhook` (protegido por senha), a Central guarda a conversa no Supabase do site
+por 90 dias e o Claude Haiku preenche a ficha de cada cliente (etapa, interesse, resumo, próximo
+passo e valor). Grupos e a equipe (`CENTRAL_EQUIPE`) ficam de fora.
+
+- **Ligar:** com a Z-API Omni ligada (`ZAPI_OMNI_KEY` e `ZAPI_OMNI_CANAL`) e o SQL rodado, abra o 📇 na
+  Central e toque em **Ligar a leitura do WhatsApp**: a Central cadastra o webhook na Z-API.
+- **Usar:** 📇 mostra quem está **esperando resposta**, todos e quem está negociando, com a conversa e
+  o botão **Responder com a IA**. No chat dá para perguntar "quem está esperando resposta?".
+- `CENTRAL_URL` (opcional): endereço público da Central para o webhook (padrão `https://rbcentral.vercel.app`).
+- `CENTRAL_LIMITE_CRM_IA` (opcional): quantas fichas a IA atualiza por dia (padrão `300`).
+
 ## Ligar o sistema de OS
 
 O sistema de OS precisa oferecer a API descrita em [`docs/CONTRATO-API-SAAS.md`](docs/CONTRATO-API-SAAS.md).
