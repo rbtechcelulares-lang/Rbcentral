@@ -21,7 +21,10 @@ module.exports = async (req, res) => {
   const osId = String((req.body || {}).os_id || '').trim().slice(0, 60);
   if (!osId) return res.status(400).json({ erro: 'Falta o os_id.' });
   try {
-    return res.status(200).json(await avisos.prepararAviso(osId));
+    const b = req.body || {};
+    const mensagem = typeof b.mensagem === 'string' ? b.mensagem.replace(/\r/g, '').trim().slice(0, 1500) : '';
+    // "ja_enviado": true = o sistema já mandou pelo botão dele; a Central só registra, sem pôr na lista
+    return res.status(200).json(await avisos.prepararAviso(osId, b.ja_enviado === true, mensagem));
   } catch (e) {
     return res.status(502).json({ pendente: false, motivo: e.message });
   }

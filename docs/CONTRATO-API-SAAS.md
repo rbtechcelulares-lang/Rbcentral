@@ -66,6 +66,13 @@ o corpo `{ "loja", "tipo": "venda" | "os_criada" | "orcamento" | "status" | "fol
 tipo estão em `docs/PROMPT-EVENTOS.md`. A Central monta a mensagem para o dono confirmar e responde
 `{ "pendente": true, "aviso" }` ou `{ "pendente": false, "motivo" }`.
 
+**Mensagem já enviada:** se o sistema mandar a mensagem pelo próprio botão de confirmação, ele chama
+`/api/evento` (ou `/api/os-status`) com `"ja_enviado": true` (e, se quiser, o texto enviado em
+`"mensagem"`): a Central tira a mensagem da lista dela. No caminho contrário, quando o dono envia pela
+Central, a Central chama `POST /api/central/eventos/enviado` com `{ "tipo", "id", "status" }` (o `id` e o
+`tipo` são os que o sistema mandou no evento; em status, `id` é o id da OS) e o sistema responde
+`{ "loja": "rbtechcelulares", "ok": true }`, marcando como enviada para não oferecer de novo.
+
 **OS** = `{ "id", "loja", "numero", "cliente": {"nome", "whatsapp"}, "aparelho": {"marca", "modelo"}, "defeito", "relato", "status", "valor", "pago", "criado_em", "atualizado_em" }`
 
 Exemplo: `GET /os?status=Pronto` → `{ "loja": "rbtechcelulares", "os": [{ "id": "…", "loja": "rbtechcelulares", "numero": 42, … }] }`

@@ -69,6 +69,9 @@ loja, com a `ZAPI_OMNI_KEY`; sem ela, abre o WhatsApp com a mensagem pronta).
 - **Vendas, OS abertas, orçamentos e follow-ups:** o sistema chama `POST /api/evento` e a mensagem
   aparece na mesma faixa. O prompt completo (todos os eventos, inclusive status) está em
   [`docs/PROMPT-EVENTOS.md`](docs/PROMPT-EVENTOS.md).
+- **Envio pelo próprio sistema de OS:** para o sistema ter o botão de confirmação dele (envio pela Z-API
+  Omni, sem abrir o WhatsApp Web) e os dois não mandarem a mesma mensagem duas vezes, use
+  [`docs/PROMPT-SAAS-WHATSAPP.md`](docs/PROMPT-SAAS-WHATSAPP.md).
 - Precisa do SQL (`supabase/central_conversas.sql`) rodado no Supabase do site.
 
 ## Ligar o sistema de OS
