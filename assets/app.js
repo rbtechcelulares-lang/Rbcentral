@@ -797,6 +797,15 @@
     $('#crm-lista').innerHTML = '<li class="hist-vazio">Carregando…</li>';
     carregarCrm(true);
   }
+  async function conferirLeitura() {
+    const ul = $('#crm-diag');
+    ul.hidden = false; ul.innerHTML = '<li class="muted">Conferindo…</li>';
+    try {
+      const d = await chamar('crm', { acao: 'diagnostico' });
+      ul.innerHTML = (d.itens || []).map((i) => '<li class="' + (i.ok ? 'ok' : 'falta') + '">' + (i.ok ? '✅ ' : '❌ ') + esc(i.texto) + '</li>').join('') +
+        '<li class="muted">Só entram mensagens novas, a partir de quando a leitura foi ligada. Para testar, mande uma mensagem de outro celular para o WhatsApp da loja.</li>';
+    } catch (er) { ul.innerHTML = '<li class="falta">❌ ' + esc(er.message) + '</li>'; }
+  }
   function fecharCrm() { $('#crm').hidden = true; $('#crm-btn').setAttribute('aria-expanded', 'false'); }
   $('#crm-btn').addEventListener('click', () => ($('#crm').hidden ? abrirCrm() : fecharCrm()));
   $('#crm-busca').addEventListener('input', () => { clearTimeout(crmBuscaTimer); crmBuscaTimer = setTimeout(() => carregarCrm(false), 350); });
@@ -817,8 +826,10 @@
         b.textContent = d.atualizado ? '✅ Leitura do WhatsApp já estava ligada (atualizada)' : '✅ Leitura do WhatsApp ligada: as mensagens novas vão chegar aqui';
       } catch (er) { b.textContent = 'Tentar de novo: ' + er.message; }
       b.disabled = false;
+      conferirLeitura();
       return;
     }
+    if (e.target.closest('#crm-conferir')) return conferirLeitura();
     const item = e.target.closest('.crm-item');
     if (!item) return;
     const numero = item.dataset.numero;

@@ -246,3 +246,7 @@ body { background: var(--fundo); color: var(--texto); font: 15px/1.5 Manrope, sy
 .crm-msg.cliente { align-self: flex-start; background: var(--painel); border: 1px solid var(--borda); }
 .crm-msg.loja { align-self: flex-end; background: #134d2e; }
 @media (max-width: 760px) { .crm-painel { width: 100%; } }
+
+.crm-conferir { align-self: flex-start; }
+.crm-diag { list-style: none; margin: 0; padding: 10px 12px; border: 1px solid var(--borda); border-radius: 12px; display: grid; gap: 6px; font-size: 13px; }
+.crm-diag li.falta { color: #fbe38e; }

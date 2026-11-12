@@ -17,6 +17,7 @@ module.exports = async (req, res) => {
     if (b.acao === 'conversa') return res.status(200).json(await crm.conversa(b.numero, 40));
     if (b.acao === 'analisar') return res.status(200).json({ analisados: await crm.analisarPendentes(6) });
     if (b.acao === 'ligar') return res.status(200).json(await crm.ligarWebhook());
+    if (b.acao === 'diagnostico') return res.status(200).json(await crm.diagnostico());
     return res.status(400).json({ erro: 'Ação desconhecida.' });
   } catch (e) {
     if (req.method === 'GET') return res.status(200).json({ ativo: crm.ativo(), contatos: [], motivo: e.message });

@@ -8,7 +8,9 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ erro: 'Use POST.' });
   if (!auth.webhookValido(req)) return res.status(401).json({ erro: 'Não autorizado.' });
   try {
-    return res.status(200).json({ ok: true, registradas: await crm.registrar(req.body) });
+    const n = await crm.registrar(req.body);
+    console.log('rb-central webhook-whatsapp', JSON.stringify({ quando: new Date().toISOString(), registradas: n, tentativa: req.headers['x-webhook-attempt'] || '1' }));
+    return res.status(200).json({ ok: true, registradas: n });
   } catch (e) {
     console.log('rb-central webhook-whatsapp erro', e.message);
     return res.status(200).json({ ok: false }); // não faz a Z-API repetir em loop
