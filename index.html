@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/style.css?v=7">
+  <link rel="stylesheet" href="assets/style.css?v=8">
 </head>
 <body>
   <!-- Login -->
@@ -41,7 +41,8 @@
         <div class="hist-topo"><b>Últimas conversas</b><button type="button" class="btn-mini" data-fechar aria-label="Fechar">✕</button></div>
         <button type="button" class="hist-nova" id="hist-nova">＋ Nova conversa</button>
         <ul class="hist-lista" id="hist-lista"></ul>
-        <p class="hist-nota">Guardo as 6 últimas conversas neste aparelho. Quando começa a 7ª, a mais antiga sai.</p>
+        <p class="hist-nota" id="hist-nota">Guardo as 6 últimas conversas.</p>
+        <button type="button" class="hist-sql" id="hist-sql" hidden>Copiar o SQL para ligar a nuvem</button>
       </div>
     </div>
     <div class="cerebro" id="cerebro">
@@ -60,6 +61,6 @@
   </section>
 
   <script src="assets/cerebro.js?v=4"></script>
-  <script src="assets/app.js?v=7"></script>
+  <script src="assets/app.js?v=8"></script>
 </body>
 </html>

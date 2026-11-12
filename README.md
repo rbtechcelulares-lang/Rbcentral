@@ -37,6 +37,13 @@ Ele **não** mexe nas configurações do sistema de OS nem da página do site.
 As variáveis de cada sistema são independentes: com só as do site, ele já funciona para o
 site. O sistema de OS entra quando a API dele estiver pronta.
 
+## Histórico na nuvem (o mesmo no iPhone e no computador)
+
+A Central guarda as 6 últimas conversas. Para elas serem as mesmas em todos os aparelhos, rode
+[`supabase/central_conversas.sql`](supabase/central_conversas.sql) no Supabase do site (o mesmo do
+CRM): **SQL Editor › New query › cole tudo › Run**. Usa a mesma `RB_PAINEL_CHAVE` do CRM. Sem
+isso, cada aparelho guarda as suas.
+
 ## Ligar o sistema de OS
 
 O sistema de OS precisa oferecer a API descrita em [`docs/CONTRATO-API-SAAS.md`](docs/CONTRATO-API-SAAS.md).

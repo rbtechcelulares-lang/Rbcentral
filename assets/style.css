@@ -187,3 +187,7 @@ body { background: var(--fundo); color: var(--texto); font: 15px/1.5 Manrope, sy
 @media (max-width: 760px) {
   .hist-painel { top: auto; bottom: 0; left: 0; right: 0; width: 100%; max-height: 78dvh; border-radius: 18px 18px 0 0; padding: 14px 14px calc(14px + env(safe-area-inset-bottom)); }
 }
+
+/* ---------- Nuvem do histórico ---------- */
+.hist-nota.aviso { color: #fbe38e; }
+.hist-sql { border: 1px solid var(--ouro); background: rgba(245,197,66,.1); color: var(--ouro); border-radius: 12px; padding: 10px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }

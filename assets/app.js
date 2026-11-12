@@ -103,10 +103,15 @@
     conv = conv || (itens.length ? conversaAtual() : null);
     if (conv) {
       conv.atualizada = Date.now();
+      conv.pendente = true; // ainda não foi para a nuvem
       if (conv.itens.length > MAX_ITENS) conv.itens.splice(0, conv.itens.length - MAX_ITENS);
     }
+    gravarLocal();
+    if (conv) agendarEnvio(conv);
+  }
+  // guarda só as 6 mais recentes que têm mensagem do dono; a mais antiga sai quando entra a 7ª
+  function gravarLocal() {
     conversas.sort((a, b) => b.atualizada - a.atualizada);
-    // guarda só as 6 mais recentes que têm mensagem do dono; a mais antiga sai quando entra a 7ª
     let salvar = conversas.filter(temMensagem).slice(0, MAX_CONVERSAS);
     conversas = conversas.filter((c) => salvar.includes(c) || c === atual);
     while (true) {
@@ -117,6 +122,91 @@
     }
     try { localStorage.setItem(CHAVE_ATUAL, atual ? atual.id : ''); } catch (e) { /* ignora */ }
   }
+
+  // ---------- Nuvem: o mesmo histórico no iPhone e no computador (Supabase do site, via api/conversas) ----------
+  const CHAVE_SINC = 'rbcentral_sinc'; // '1' depois da primeira sincronização
+  const CHAVE_APAGADAS = 'rbcentral_apagadas'; // apagadas aqui que a nuvem ainda não confirmou
+  let nuvem = { ok: null, motivo: '' };
+  let apagadas = [];
+  try { apagadas = JSON.parse(localStorage.getItem(CHAVE_APAGADAS) || '[]'); } catch (e) { apagadas = []; }
+  if (!Array.isArray(apagadas)) apagadas = [];
+  const gravarApagadas = () => { try { localStorage.setItem(CHAVE_APAGADAS, JSON.stringify(apagadas.slice(-30))); } catch (e) { /* ignora */ } };
+  const envios = new Map(); // id da conversa → envio agendado
+  function agendarEnvio(c) {
+    if (!temMensagem(c) || nuvem.ok === false) return;
+    clearTimeout(envios.get(c.id));
+    envios.set(c.id, setTimeout(() => subir(c), 1200));
+  }
+  async function subir(c) {
+    envios.delete(c.id);
+    if (!token || !conversas.includes(c)) return;
+    const versao = c.atualizada;
+    try {
+      const d = await chamar('conversas', { acao: 'salvar', conversa: { id: c.id, criada: c.criada, atualizada: c.atualizada, itens: c.itens } });
+      if (!d.sinc) { nuvem = { ok: false, motivo: d.motivo }; return mostrarNuvem(); }
+      nuvem = { ok: true, motivo: '' };
+      if (c.atualizada === versao) { c.pendente = false; gravarLocal(); }
+    } catch (e) { /* sem internet: fica pendente e vai na próxima sincronização */ }
+  }
+  async function apagarNaNuvem(id) {
+    try {
+      const d = await chamar('conversas', { acao: 'apagar', id });
+      if (d.sinc) { apagadas = apagadas.filter((x) => x !== id); gravarApagadas(); }
+    } catch (e) { /* tenta de novo na próxima sincronização */ }
+  }
+  let sincronizando = false, ultimaSinc = 0;
+  async function sincronizar(forcar) {
+    if (!token || sincronizando || ocupado) return;
+    if (!forcar && Date.now() - ultimaSinc < 15000) return;
+    sincronizando = true;
+    try {
+      for (const id of apagadas.slice()) await apagarNaNuvem(id);
+      const d = await chamar('conversas');
+      if (!d.sinc) { nuvem = { ok: false, motivo: d.motivo }; return; }
+      nuvem = { ok: true, motivo: '' };
+      ultimaSinc = Date.now();
+      let primeira = false;
+      try { primeira = !localStorage.getItem(CHAVE_SINC); } catch (e) { /* ignora */ }
+      if (primeira) conversas.forEach((c) => { c.pendente = true; }); // o que já estava neste aparelho sobe na primeira vez
+      if (!ocupado) mesclar(d.conversas || []);
+      try { localStorage.setItem(CHAVE_SINC, '1'); } catch (e) { /* ignora */ }
+    } catch (e) { /* sem internet: segue com o que está no aparelho */ } finally {
+      sincronizando = false;
+      mostrarNuvem();
+    }
+  }
+  // junta a nuvem com o aparelho: vale a versão mais nova; o que foi apagado em outro aparelho some daqui
+  function mesclar(remotas) {
+    const locais = new Map(conversas.map((c) => [c.id, c]));
+    const final = [];
+    remotas.forEach((r) => {
+      if (!r || !r.id || !Array.isArray(r.itens) || apagadas.includes(r.id) || final.some((c) => c.id === r.id)) return;
+      const l = locais.get(r.id);
+      locais.delete(r.id);
+      if (l && (l.atualizada === r.atualizada || (l.pendente && l.atualizada > r.atualizada))) final.push(l);
+      else final.push(Object.assign(r, { pendente: false }));
+    });
+    locais.forEach((l) => { if (l.pendente && temMensagem(l)) final.push(l); }); // feita aqui e ainda não enviada
+    const antes = atual;
+    conversas = final;
+    if (antes && !conversas.includes(antes)) {
+      abrirConversa(conversas.find((c) => c.id === antes.id) || null); // mudou ou foi apagada em outro aparelho
+      desenhar();
+    }
+    gravarLocal();
+    conversas.filter((c) => c.pendente).forEach(agendarEnvio);
+    if (!$('#hist').hidden) desenharHistorico();
+  }
+  function mostrarNuvem() {
+    const n = $('#hist-nota');
+    if (!n) return;
+    n.classList.toggle('aviso', nuvem.ok === false);
+    if (nuvem.ok) n.textContent = '☁️ As 6 últimas conversas ficam na nuvem: as mesmas no iPhone e no computador.';
+    else if (nuvem.ok === false) n.textContent = 'Guardando só neste aparelho: ' + (nuvem.motivo || 'a nuvem não respondeu') + '.';
+    else n.textContent = 'Guardo as 6 últimas conversas. Conferindo a nuvem…';
+    $('#hist-sql').hidden = !(nuvem.ok === false && /SQL/.test(nuvem.motivo || ''));
+  }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') sincronizar(); });
 
   // cérebro: cada neurônio é uma aba de um sistema; tocar nele pede aquilo para a IA
   let cerebro = null;
@@ -169,6 +259,7 @@
       $('#conexoes').innerHTML = [['IA', s.ia], ['Site', s.site], ['CRM', s.crm], ['OS', s.sistema_os]]
         .map(([n, on]) => '<span class="con' + (on ? ' on' : '') + '">' + (on ? '● ' : '○ ') + n + '</span>').join('');
     } catch (e) { /* mostrado ao usar */ }
+    sincronizar(true);
   }
 
   function desenhar(rolar) {
@@ -376,6 +467,8 @@
   }
   function abrirHistorico() {
     desenharHistorico();
+    mostrarNuvem();
+    sincronizar(true);
     $('#hist').hidden = false;
     $('#hist-btn').setAttribute('aria-expanded', 'true');
   }
@@ -398,10 +491,25 @@
       const c = conversas.find((x) => x.id === ap.dataset.apagar);
       if (!c || !confirm('Apagar a conversa "' + tituloConversa(c).slice(0, 40) + '"?')) return;
       conversas = conversas.filter((x) => x !== c);
+      clearTimeout(envios.get(c.id)); envios.delete(c.id);
+      apagadas.push(c.id); gravarApagadas(); apagarNaNuvem(c.id);
       if (c === atual) { abrirConversa(null); desenhar(); }
       guardar(); desenharHistorico();
+      return;
     }
+    if (e.target.closest('#hist-sql')) copiarSql();
   });
+  // copia o SQL do histórico para colar no Supabase (SQL Editor › New query › Run)
+  async function copiarSql() {
+    const b = $('#hist-sql');
+    try {
+      const sql = await (await fetch('supabase/central_conversas.sql', { cache: 'no-store' })).text();
+      await navigator.clipboard.writeText(sql);
+      b.textContent = '✅ SQL copiado. Cole no Supabase › SQL Editor › New query › Run';
+    } catch (e) {
+      window.open('supabase/central_conversas.sql', '_blank', 'noopener');
+    }
+  }
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#hist').hidden) fecharHistorico(); });
 
   if (token) entrar(); else $('#login').hidden = false;
