@@ -23,8 +23,8 @@ Ele **não** mexe nas configurações do sistema de OS nem da página do site.
 
 | Variável | O que é |
 |---|---|
-| `CENTRAL_SENHA` | A senha que você vai usar para entrar (8+ caracteres) |
-| `CENTRAL_SEGREDO` | Um texto aleatório longo (32+ caracteres) que assina o login e as confirmações. Gere um, por exemplo, numa ferramenta de senha forte com 40 caracteres |
+| `CENTRAL_SENHA` | **Opcional.** Sem ela, você entra com a **mesma senha do admin do site** |
+| `CENTRAL_SEGREDO` | **Opcional.** Texto aleatório (32+ caracteres) que assina o login e as confirmações; sem ele, é gerado a partir das chaves do servidor |
 | `ANTHROPIC_API_KEY` | Chave da API da Anthropic (platform.claude.com › API Keys). Pode ser a mesma do site ou uma nova, para separar os gastos |
 | `RB_GITHUB_TOKEN` | Token do GitHub com acesso **só** ao repositório do site (fine-grained token › Repository access: RB-TECH-CELULARES › Contents: Read and write) |
 | `RB_GITHUB_REPO` | `rbtechcelulares-lang/RB-TECH-CELULARES` |
@@ -49,7 +49,7 @@ Para isso, abra o Claude Code no repositório do sistema e use o prompt de
 - **Só a sua loja:** o sistema de OS é de vários lojistas, mas a chave da API só abre a sua loja
   (garantido no servidor do sistema). Como segunda trava, o Central recusa qualquer resposta que
   não seja da loja `SAAS_LOJA`.
-- **Acesso:** só com `CENTRAL_SENHA`. O login vale 12 horas, e são 5 tentativas erradas por
+- **Acesso:** com a senha do admin do site (ou `CENTRAL_SENHA`, se configurada). O login vale 12 horas, e são 5 tentativas erradas por
   IP antes de esperar 10 minutos.
 - **Confirmações:** as alterações são assinadas pelo servidor, valem 15 minutos e não rodam duas
   vezes.

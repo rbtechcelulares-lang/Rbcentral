@@ -15,7 +15,11 @@ module.exports = async (req, res) => {
   const t = tentativas.get(ip) || { n: 0, ate: 0 };
   if (t.ate > Date.now()) return res.status(429).json({ erro: 'Muitas tentativas. Espere alguns minutos.' });
   const senha = String((req.body || {}).senha || '');
-  if (!auth.senhaConfere(senha)) {
+  let confere = false;
+  try { confere = await auth.senhaConfere(senha); } catch (e) {
+    return res.status(502).json({ erro: 'Não consegui conferir a senha no catálogo do site: ' + e.message });
+  }
+  if (!confere) {
     t.n++; if (t.n >= 5) { t.ate = Date.now() + 10 * 60e3; t.n = 0; }
     tentativas.set(ip, t);
     await new Promise((ok) => setTimeout(ok, 800));
