@@ -64,8 +64,11 @@ loja, com a `ZAPI_OMNI_KEY`; sem ela, abre o WhatsApp com a mensagem pronta).
 
 - **Mudança pela Central:** o cartão aparece logo depois do "Confirmar" da mudança de status.
 - **Mudança no sistema de OS:** o sistema chama `POST /api/os-status` da Central e o aviso aparece na
-  faixa **📣 avisos de OS para confirmar**. Para isso, rode o prompt de
+  faixa **📣 mensagens para confirmar**. Para isso, rode o prompt de
   [`docs/PROMPT-OS-STATUS.md`](docs/PROMPT-OS-STATUS.md) no Claude Code do sistema de OS.
+- **Vendas, OS abertas, orçamentos e follow-ups:** o sistema chama `POST /api/evento` e a mensagem
+  aparece na mesma faixa. O prompt completo (todos os eventos, inclusive status) está em
+  [`docs/PROMPT-EVENTOS.md`](docs/PROMPT-EVENTOS.md).
 - Precisa do SQL (`supabase/central_conversas.sql`) rodado no Supabase do site.
 
 ## Ligar o sistema de OS

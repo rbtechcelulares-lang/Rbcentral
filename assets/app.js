@@ -237,11 +237,11 @@
   function mostrarBarraAvisos() {
     const n = avisosPendentes.filter((a) => !estadoAviso[a.id] || estadoAviso[a.id].estado === 'falhou').length;
     $('#avisos-barra').hidden = !n;
-    $('#avisos-n').textContent = n + (n === 1 ? ' aviso de OS para confirmar' : ' avisos de OS para confirmar');
+    $('#avisos-n').textContent = n + (n === 1 ? ' mensagem para confirmar' : ' mensagens para confirmar');
   }
   function desenharAvisos() {
     const lista = avisosPendentes.map((a) => cartaoAviso(a, 'p'));
-    $('#avisos-lista').innerHTML = lista.length ? lista.map((h) => '<li>' + h + '</li>').join('') : '<li class="hist-vazio">Nenhum aviso esperando. 👍</li>';
+    $('#avisos-lista').innerHTML = lista.length ? lista.map((h) => '<li>' + h + '</li>').join('') : '<li class="hist-vazio">Nenhuma mensagem esperando. 👍</li>';
   }
   async function acaoAviso(id, acao) {
     if (!id || (estadoAviso[id] && estadoAviso[id].estado === 'enviando')) return;

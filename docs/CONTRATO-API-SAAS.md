@@ -59,6 +59,13 @@ Toda chamada vem com o cabeçalho `Authorization: Bearer <SAAS_API_TOKEN>`.
 por `GET /os/:id`, monta o aviso para o dono confirmar e responde `{ "pendente": true, "aviso" }` ou
 `{ "pendente": false, "motivo" }`.
 
+**Eventos (sistema → Central):** a cada venda, OS aberta, orçamento, mudança de status ou
+follow-up da loja `CENTRAL_LOJA`, o sistema faz `POST {CENTRAL_URL}/api/evento` com a mesma chave e
+o corpo `{ "loja", "tipo": "venda" | "os_criada" | "orcamento" | "status" | "follow_up", "id",
+"cliente": { "nome", "whatsapp" }, "dados": { ... }, "mensagem"? }`. Os campos de `dados` de cada
+tipo estão em `docs/PROMPT-EVENTOS.md`. A Central monta a mensagem para o dono confirmar e responde
+`{ "pendente": true, "aviso" }` ou `{ "pendente": false, "motivo" }`.
+
 **OS** = `{ "id", "loja", "numero", "cliente": {"nome", "whatsapp"}, "aparelho": {"marca", "modelo"}, "defeito", "relato", "status", "valor", "pago", "criado_em", "atualizado_em" }`
 
 Exemplo: `GET /os?status=Pronto` → `{ "loja": "rbtechcelulares", "os": [{ "id": "…", "loja": "rbtechcelulares", "numero": 42, … }] }`
