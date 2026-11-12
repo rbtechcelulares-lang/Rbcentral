@@ -1,0 +1,8 @@
+{
+  "name": "rb-central",
+  "private": true,
+  "description": "RB Central: assistente de gestão com IA que comanda o site RB Tech e o sistema de OS",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0"
+  }
+}

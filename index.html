@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#0b0b0b">
+  <title>RB Central</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css?v=1">
+</head>
+<body>
+  <!-- Login -->
+  <section id="login" class="login" hidden>
+    <form class="login-box" id="login-form">
+      <div class="marca">RB <b>Central</b></div>
+      <p class="muted">Assistente de gestão da RB Tech. Acesso só do dono.</p>
+      <label class="campo"><span>Senha</span><input type="password" id="senha" autocomplete="current-password" required></label>
+      <p class="erro" id="login-erro" hidden></p>
+      <button class="btn btn-ouro" type="submit">Entrar</button>
+    </form>
+  </section>
+
+  <!-- App -->
+  <section id="app" class="app" hidden>
+    <header class="topo">
+      <div class="marca">RB <b>Central</b></div>
+      <div class="conexoes" id="conexoes"></div>
+      <button class="btn-mini" id="limpar" title="Nova conversa">Nova conversa</button>
+      <button class="btn-mini" id="sair" title="Sair">Sair</button>
+    </header>
+    <main class="conversa" id="conversa" aria-live="polite"></main>
+    <div class="rapidos" id="rapidos"></div>
+    <form class="enviar" id="enviar">
+      <textarea id="msg" rows="1" maxlength="2000" placeholder="Ex.: baixa 100 reais nos iPhone 13 seminovos e publica"></textarea>
+      <button class="btn btn-ouro" type="submit" aria-label="Enviar">➤</button>
+    </form>
+  </section>
+
+  <script src="assets/app.js?v=1"></script>
+</body>
+</html>
