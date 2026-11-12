@@ -35,7 +35,9 @@ Ele **não** mexe nas configurações do sistema de OS nem da página do site.
 | `SAAS_LOJA` | A sua loja no sistema de OS: `rbtechcelulares` (é o padrão se ficar vazio) |
 | `GROQ_API_KEY` | **Microfone.** Chave grátis da Groq (console.groq.com › API Keys) para transcrever a voz com o Whisper large-v3. Sem ela, o microfone usa o reconhecimento do navegador ou o ditado do teclado |
 | `CENTRAL_LIMITE_VOZ_CLAUDE` | **Opcional.** Quantas transcrições por dia o Claude Haiku revisa depois do Whisper (padrão `40`; `0` desliga). Passando do limite, segue só com o Whisper grátis até o dia seguinte. A API do Claude não recebe áudio, por isso ele revisa o texto em vez de ouvir |
-| `WHATSAPP_TOKEN` | **Opcional, envio automático.** Token permanente do usuário do sistema da Meta (Configurações do negócio › Usuários do sistema › Gerar token, validade "Nunca", permissões `whatsapp_business_messaging` e `whatsapp_business_management`) |
+| `ZAPI_OMNI_KEY` | **Opcional, envio automático pelo WhatsApp da loja.** A Secret Key da Z-API Omni (painel › Segurança). Precisa de uma conexão **WhatsApp Web** (QR code) em Conexões. Tem prioridade sobre a API da Meta |
+| `ZAPI_OMNI_CANAL` | **Opcional.** O ID do canal na Z-API Omni; sem ele, a Central usa a conexão WhatsApp Web conectada |
+| `WHATSAPP_TOKEN` | **Opcional, envio automático pela API oficial da Meta.** Token permanente do usuário do sistema da Meta (Configurações do negócio › Usuários do sistema › Gerar token, validade "Nunca", permissões `whatsapp_business_messaging` e `whatsapp_business_management`) |
 | `WHATSAPP_PHONE_ID` | O "Phone Number ID" do número que envia (developers.facebook.com › seu app › WhatsApp) |
 | `WHATSAPP_MODELO` | Nome do modelo aprovado (Utilidade, com `{{1}}` no meio do texto), ex.: `aviso_equipe`. Sem ele, a mensagem vai como texto livre e só chega se a pessoa mandou mensagem para o número nas últimas 24 h |
 | `WHATSAPP_IDIOMA` | **Opcional.** Idioma do modelo (padrão `pt_BR`) |
