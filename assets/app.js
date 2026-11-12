@@ -743,7 +743,10 @@
 
   // ---------- CRM do WhatsApp: clientes que conversaram com o WhatsApp da loja ----------
   const ETAPA_NOME = { novo: 'Novo', em_atendimento: 'Em atendimento', orcamento: 'Orçamento', negociando: 'Negociando', comprou: 'Comprou', perdido: 'Perdido', pos_venda: 'Pós-venda' };
-  let crmFiltro = 'sem_resposta', crmLista = [], crmBuscaTimer = null;
+  // o CRM mostra só quem quer comprar iPhone; o resto fica na aba "Outros", sem ação
+  const TIPO_NOME = { vende_para_loja: 'Vendendo p/ loja', reparo: 'Reparo', outro: 'Outro assunto' };
+  const TIPO_ICONE = { vende_para_loja: '📦', reparo: '🔧', outro: '💬' };
+  let crmFiltro = 'sem_resposta', crmLista = [], crmBuscaTimer = null, crmLendo = false, crmEmLeitura = false;
   const fone = (n) => { const m = String(n || '').match(/^55(\d{2})(\d{4,5})(\d{4})$/); return m ? '+55 ' + m[1] + ' ' + m[2] + '-' + m[3] : '+' + n; };
   const haQuanto = (t) => {
     const min = Math.round((Date.now() - new Date(t).getTime()) / 60000);
@@ -754,15 +757,19 @@
   };
   const reais = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   function cartaoCrm(c) {
-    const esperando = c.ultima_de === 'cliente';
-    return '<li class="crm-item" data-numero="' + esc(c.numero) + '">' +
-      '<div class="crm-topo"><b>' + esc(c.nome || fone(c.numero)) + '</b><span class="crm-etapa etapa-' + esc(c.etapa) + '">' + esc(ETAPA_NOME[c.etapa] || c.etapa) + '</span></div>' +
+    const comprador = !c.tipo || c.tipo === 'compra_iphone';
+    const esperando = comprador && c.ultima_de === 'cliente';
+    const selo = comprador
+      ? '<span class="crm-etapa etapa-' + esc(c.etapa) + '">' + esc(ETAPA_NOME[c.etapa] || c.etapa) + '</span>'
+      : '<span class="crm-etapa etapa-fora">' + esc(TIPO_NOME[c.tipo] || 'Outro') + '</span>';
+    return '<li class="crm-item' + (comprador ? '' : ' crm-fora') + '" data-numero="' + esc(c.numero) + '">' +
+      '<div class="crm-topo"><b>' + esc(c.nome || fone(c.numero)) + '</b>' + selo + '</div>' +
       '<div class="crm-sub">' + esc(fone(c.numero)) + ' · ' + esc(haQuanto(c.ultimo_contato)) + (esperando ? ' · <span class="crm-esperando">esperando resposta</span>' : '') + '</div>' +
-      (c.interesse ? '<div class="crm-interesse">📱 ' + esc(c.interesse) + (Number(c.valor) > 0 ? ' · ' + reais(c.valor) : '') + '</div>' : '') +
+      (c.interesse ? '<div class="crm-interesse">' + (comprador ? '📱' : TIPO_ICONE[c.tipo] || '💬') + ' ' + esc(c.interesse) + (comprador && Number(c.valor) > 0 ? ' · ' + reais(c.valor) : '') + '</div>' : '') +
       (c.resumo ? '<div class="crm-resumo">' + esc(c.resumo) + '</div>' : (c.msgs_novas > 0 ? '<div class="crm-resumo muted">A IA ainda vai ler esta conversa…</div>' : '')) +
       (c.proxima_acao ? '<div class="crm-acao">➡️ ' + esc(c.proxima_acao) + '</div>' : '') +
-      (c.ultima_msg ? '<div class="crm-ultima">' + (esperando ? 'Cliente' : 'Loja') + ': “' + esc(c.ultima_msg) + '”</div>' : '') +
-      '<div class="crm-botoes"><button type="button" class="btn-mini" data-crm-ver>Ver conversa</button><button type="button" class="btn-mini crm-responder" data-crm-responder>Responder com a IA</button></div>' +
+      (c.ultima_msg ? '<div class="crm-ultima">' + (c.ultima_de === 'cliente' ? (comprador ? 'Cliente' : 'Contato') : 'Loja') + ': “' + esc(c.ultima_msg) + '”</div>' : '') +
+      '<div class="crm-botoes"><button type="button" class="btn-mini" data-crm-ver>Ver conversa</button>' + (comprador ? '<button type="button" class="btn-mini crm-responder" data-crm-responder>Responder com a IA</button>' : '') + '</div>' +
       '<div class="crm-conversa" hidden></div></li>';
   }
   function desenharCrm(d) {
@@ -773,21 +780,36 @@
       return;
     }
     if (d.motivo) { $('#crm-lista').innerHTML = '<li class="hist-vazio">Não consegui abrir o CRM: ' + esc(d.motivo) + '</li>'; return; }
-    $('#crm-lista').innerHTML = crmLista.length ? crmLista.map(cartaoCrm).join('')
-      : '<li class="hist-vazio">' + (crmFiltro === 'sem_resposta' ? 'Ninguém esperando resposta. 👍' : 'Nenhuma conversa ainda. Toque em "Ligar a leitura do WhatsApp" e as mensagens novas vão aparecendo aqui.') + '</li>';
+    const vazio = crmLendo ? 'A IA está lendo as conversas…'
+      : crmFiltro === 'outros' ? 'Nenhuma conversa de reparo, de quem vende para a loja ou de outro assunto.'
+        : crmFiltro === 'sem_resposta' ? 'Nenhum cliente de iPhone esperando resposta. 👍'
+          : 'Nenhum cliente querendo comprar iPhone ainda. As conversas novas do WhatsApp vão aparecendo aqui.';
+    $('#crm-lista').innerHTML =
+      (d.precisa_sql ? '<li class="hist-vazio crm-aviso">Para mostrar só quem quer comprar iPhone, rode de novo o SQL do CRM no Supabase (o mesmo arquivo de antes, supabase/central_conversas.sql).</li>' : '') +
+      (crmLendo && crmLista.length ? '<li class="hist-vazio crm-aviso">🔎 A IA está lendo as conversas novas…</li>' : '') +
+      (crmLista.length ? crmLista.map(cartaoCrm).join('') : '<li class="hist-vazio">' + vazio + '</li>');
   }
+  // analisar = quantas levas de conversas a IA ainda pode ler agora (6 por leva)
   async function carregarCrm(analisar) {
     const busca = $('#crm-busca').value.trim();
+    const outros = crmFiltro === 'outros';
     try {
-      const d = await chamar('crm?filtro=' + encodeURIComponent(crmFiltro) + '&busca=' + encodeURIComponent(busca));
+      const d = await chamar('crm?filtro=' + encodeURIComponent(outros ? 'todos' : crmFiltro) + '&tipo=' + (outros ? 'outros' : 'compra_iphone') + '&busca=' + encodeURIComponent(busca));
       crmLista = Array.isArray(d.contatos) ? d.contatos : [];
+      crmLendo = !!(analisar && d.ativo && !d.motivo && !crmEmLeitura); // uma leitura por vez (trocar de aba não dobra o gasto)
       desenharCrm(d);
-      // a IA lê as conversas com mensagens novas e atualiza as fichas
-      if (analisar && d.ativo && crmLista.some((c) => c.msgs_novas > 0)) {
+      // a IA lê as conversas com mensagens novas, separa quem quer comprar iPhone e atualiza as fichas
+      if (crmLendo) {
+        crmEmLeitura = true;
         const a = await chamar('crm', { acao: 'analisar' }).catch(() => ({}));
-        if (a.analisados > 0 && !$('#crm').hidden) carregarCrm(false);
+        crmEmLeitura = false;
+        crmLendo = false;
+        if ($('#crm').hidden) return;
+        if (a.analisados > 0) return carregarCrm(a.analisados >= 6 && analisar > 1 ? analisar - 1 : 0);
+        desenharCrm(d);
       }
     } catch (e) {
+      crmLendo = false;
       $('#crm-lista').innerHTML = '<li class="hist-vazio">Não consegui abrir o CRM: ' + esc(e.message) + '</li>';
     }
   }
@@ -795,7 +817,7 @@
     $('#crm').hidden = false;
     $('#crm-btn').setAttribute('aria-expanded', 'true');
     $('#crm-lista').innerHTML = '<li class="hist-vazio">Carregando…</li>';
-    carregarCrm(true);
+    carregarCrm(15);
   }
   async function conferirLeitura() {
     const ul = $('#crm-diag');
@@ -816,7 +838,7 @@
       crmFiltro = aba.dataset.crmFiltro;
       document.querySelectorAll('.crm-aba').forEach((b) => b.classList.toggle('on', b === aba));
       $('#crm-lista').innerHTML = '<li class="hist-vazio">Carregando…</li>';
-      return carregarCrm(true);
+      return carregarCrm(15);
     }
     if (e.target.closest('#crm-ligar')) {
       const b = $('#crm-ligar');

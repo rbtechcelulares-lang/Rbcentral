@@ -210,6 +210,11 @@ create table if not exists public.central_wa_contatos (
   analisado timestamptz
 );
 create index if not exists central_wa_contatos_ultimo_idx on public.central_wa_contatos (ultimo_contato desc);
+-- tipo de conversa (a IA decide): o CRM mostra só quem quer comprar iPhone
+--   compra_iphone · vende_para_loja (a loja é que compra) · reparo · outro · null = ainda não lido
+alter table public.central_wa_contatos add column if not exists tipo text check (tipo in ('compra_iphone', 'vende_para_loja', 'reparo', 'outro'));
+-- contatos lidos antes da separação por tipo: a IA lê de novo para separar
+update public.central_wa_contatos set msgs_novas = greatest(msgs_novas, 1) where tipo is null and analisado is not null;
 create table if not exists public.central_wa_mensagens (
   id text primary key check (char_length(id) between 1 and 80),
   numero text not null references public.central_wa_contatos (numero) on delete cascade,
@@ -258,8 +263,10 @@ $$;
 revoke all on function public.central_wa_registrar(text, text, text, text, boolean, text, timestamptz) from public;
 grant execute on function public.central_wa_registrar(text, text, text, text, boolean, text, timestamptz) to anon, authenticated;
 
--- Lista os contatos: p_filtro = 'todos' | 'sem_resposta' | 'para_analisar' | uma etapa; p_busca procura em nome, número, interesse e resumo
-create or replace function public.central_wa_listar(chave text, p_filtro text, p_busca text, p_limite integer)
+-- Lista os contatos: p_filtro = 'todos' | 'sem_resposta' | 'para_analisar' | uma etapa; p_busca procura em nome, número, interesse e resumo;
+-- p_tipo = 'compra_iphone' (padrão: só quem quer comprar iPhone) | 'outros' (vende para a loja, reparo, outro) | 'todos'
+drop function if exists public.central_wa_listar(text, text, text, integer);
+create or replace function public.central_wa_listar(chave text, p_filtro text, p_busca text, p_limite integer, p_tipo text default 'compra_iphone')
 returns jsonb
 language plpgsql
 security definer
@@ -270,9 +277,12 @@ begin
   return coalesce((
     select jsonb_agg(to_jsonb(x) order by x.ultimo_contato desc)
     from (
-      select numero, nome, primeiro_contato, ultimo_contato, ultima_msg, ultima_de, msgs_novas, etapa, interesse, resumo, proxima_acao, valor, analisado
+      select numero, nome, primeiro_contato, ultimo_contato, ultima_msg, ultima_de, msgs_novas, tipo, etapa, interesse, resumo, proxima_acao, valor, analisado
       from central_wa_contatos
-      where (coalesce(p_filtro, 'todos') = 'todos'
+      where (coalesce(p_tipo, 'compra_iphone') = 'todos'
+          or (coalesce(p_tipo, 'compra_iphone') = 'compra_iphone' and tipo = 'compra_iphone')
+          or (p_tipo = 'outros' and tipo <> 'compra_iphone'))
+        and (coalesce(p_filtro, 'todos') = 'todos'
           or (p_filtro = 'sem_resposta' and ultima_de = 'cliente')
           or (p_filtro = 'para_analisar' and msgs_novas > 0)
           or etapa = p_filtro)
@@ -285,8 +295,8 @@ begin
   ), '[]'::jsonb);
 end;
 $$;
-revoke all on function public.central_wa_listar(text, text, text, integer) from public;
-grant execute on function public.central_wa_listar(text, text, text, integer) to anon, authenticated;
+revoke all on function public.central_wa_listar(text, text, text, integer, text) from public;
+grant execute on function public.central_wa_listar(text, text, text, integer, text) to anon, authenticated;
 
 -- A ficha e as últimas mensagens de um contato (da mais antiga para a mais nova)
 create or replace function public.central_wa_conversa(chave text, p_numero text, p_limite integer)
@@ -319,10 +329,11 @@ as $$
 begin
   perform painel_checar(chave);
   update central_wa_contatos set
+    tipo = case when p_dados->>'tipo' in ('compra_iphone', 'vende_para_loja', 'reparo', 'outro') then p_dados->>'tipo' else tipo end,
     etapa = case when p_dados->>'etapa' in ('novo', 'em_atendimento', 'orcamento', 'negociando', 'comprou', 'perdido', 'pos_venda') then p_dados->>'etapa' else etapa end,
     interesse = left(nullif(p_dados->>'interesse', ''), 200),
     resumo = left(nullif(p_dados->>'resumo', ''), 600),
-    proxima_acao = left(nullif(p_dados->>'proxima_acao', ''), 200),
+    proxima_acao = case when p_dados->>'tipo' is null or p_dados->>'tipo' = 'compra_iphone' then left(nullif(p_dados->>'proxima_acao', ''), 200) end,
     valor = case when (p_dados->>'valor') ~ '^[0-9]+(\.[0-9]+)?$' and (p_dados->>'valor')::numeric > 0 then (p_dados->>'valor')::numeric else null end,
     msgs_novas = 0,
     analisado = now()

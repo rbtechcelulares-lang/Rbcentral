@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/style.css?v=14">
+  <link rel="stylesheet" href="assets/style.css?v=15">
 </head>
 <body>
   <!-- Login -->
@@ -60,10 +60,11 @@
           <button type="button" class="crm-aba on" data-crm-filtro="sem_resposta">Esperando resposta</button>
           <button type="button" class="crm-aba" data-crm-filtro="todos">Todos</button>
           <button type="button" class="crm-aba" data-crm-filtro="negociando">Negociando</button>
+          <button type="button" class="crm-aba" data-crm-filtro="outros" title="Reparo, quem vende para a loja e outros assuntos">Outros</button>
         </div>
         <input type="search" id="crm-busca" class="crm-busca" placeholder="Procurar nome, número, produto…" autocomplete="off">
         <ul class="crm-lista" id="crm-lista"></ul>
-        <p class="hist-nota" id="crm-nota">As conversas do WhatsApp da loja chegam pela Z-API, e a IA monta a ficha de cada cliente.</p>
+        <p class="hist-nota" id="crm-nota">A IA lê o WhatsApp da loja e mostra aqui só quem quer comprar iPhone. Reparo, quem vende para a loja e outros assuntos ficam em "Outros", sem nada para mandar.</p>
         <button type="button" class="hist-sql" id="crm-ligar" hidden>Ligar a leitura do WhatsApp</button>
         <button type="button" class="btn-mini crm-conferir" id="crm-conferir">Conferir a leitura do WhatsApp</button>
         <ul class="crm-diag" id="crm-diag" hidden></ul>
@@ -88,6 +89,6 @@
   </section>
 
   <script src="assets/cerebro.js?v=8"></script>
-  <script src="assets/app.js?v=16"></script>
+  <script src="assets/app.js?v=17"></script>
 </body>
 </html>

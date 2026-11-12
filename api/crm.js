@@ -1,5 +1,5 @@
 // CRM do WhatsApp na tela da Central.
-// GET ?filtro=sem_resposta|todos|<etapa>&busca= → { ativo, contatos }
+// GET ?filtro=sem_resposta|todos|<etapa>&tipo=compra_iphone|outros&busca= → { ativo, contatos, precisa_sql }
 // POST { acao: 'conversa', numero } · { acao: 'analisar' } · { acao: 'ligar' }
 const auth = require('../lib/auth');
 const crm = require('../lib/crm-whatsapp');
@@ -10,7 +10,8 @@ module.exports = async (req, res) => {
   try {
     if (req.method === 'GET') {
       const q = req.query || {};
-      return res.status(200).json({ ativo: crm.ativo(), contatos: await crm.listar({ filtro: q.filtro, busca: q.busca, limite: 50 }) });
+      const contatos = await crm.listar({ filtro: q.filtro, busca: q.busca, tipo: q.tipo === 'outros' ? 'outros' : 'compra_iphone', limite: 50 });
+      return res.status(200).json({ ativo: crm.ativo(), contatos, precisa_sql: crm.precisaSql() });
     }
     if (req.method !== 'POST') return res.status(405).json({ erro: 'Use GET ou POST.' });
     const b = req.body || {};

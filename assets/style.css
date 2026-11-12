@@ -232,6 +232,9 @@ body { background: var(--fundo); color: var(--texto); font: 15px/1.5 Manrope, sy
 .crm-etapa.etapa-orcamento, .crm-etapa.etapa-negociando { background: rgba(255,106,0,.15); color: #ff9a4d; }
 .crm-etapa.etapa-comprou, .crm-etapa.etapa-pos_venda { background: rgba(47,191,113,.15); color: var(--ok); }
 .crm-etapa.etapa-perdido { background: rgba(255,122,106,.12); color: var(--erro); }
+.crm-etapa.etapa-fora { background: #24211d; color: var(--apagado); }
+.crm-item.crm-fora { opacity: .78; }
+.crm-aviso { color: var(--ouro); }
 .crm-sub { font-size: 12px; color: var(--apagado); }
 .crm-esperando { color: #fbe38e; font-weight: 700; }
 .crm-interesse { font-weight: 700; font-size: 14px; }
