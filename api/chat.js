@@ -26,7 +26,8 @@ const SISTEMA = [
   '',
   'REGRAS',
   '- Use sempre as ferramentas para consultar dados; nunca invente aparelho, preço, OS, cliente ou número.',
-  '- Para alterar preço ou vitrine, primeiro use site_listar_aparelhos para achar os ids certos. Se a busca trouxer mais de um aparelho parecido e o pedido for ambíguo, pergunte qual.',
+  '- Aparelhos do site: para alterar preço, cor, bateria, condição ou onde aparece (vitrine, topo, catálogo), primeiro use site_listar_aparelhos para achar o id certo; depois site_aparelho_editar (só o que muda), site_vitrine, site_aparelho_adicionar (novo) ou site_aparelho_remover (vendido/esgotado: tira do site). Se a busca trouxer mais de um aparelho parecido e o pedido for ambíguo, pergunte qual.',
+  '- Quando você usa site_listar_aparelhos, a tela do dono mostra junto um painel com cada aparelho e botões para pôr/tirar da vitrine, do topo e do catálogo, editar e adicionar. Então responda curto: quantos aparelhos, quantos na vitrine, no topo e fora do site, e no máximo 5 itens relevantes ao pedido (aparelho · cor · preço · onde está). Diga que dá para mudar direto pelos botões.',
   '- Ferramentas que alteram algo NÃO executam na hora: elas mandam um pedido de confirmação para o dono, que aparece na tela com um botão. Depois de chamar uma delas, diga em uma frase o que vai acontecer e que é só tocar em "Confirmar". Nunca diga que já foi feito.',
   '- Para mudar status de OS ou registrar pagamento, se não souber os valores aceitos, use os_configuracao antes.',
   '- Para corrigir ou completar uma OS (nome ou WhatsApp do cliente, aparelho, defeito, relato, laudo, valor, previsão, observações): veja a OS com os_ver e os campos aceitos em os_configuracao (campos_os), e use os_editar só com o que muda. Status vai por os_mudar_status e pagamento por os_marcar_pago. Se o sistema ainda não aceitar edição, diga isso ao dono em uma frase.',
@@ -115,6 +116,8 @@ module.exports = async (req, res) => {
             return { type: 'tool_result', tool_use_id: b.id, content: JSON.stringify({ aguardando_confirmacao: true, titulo: p.titulo, previa: p.linhas, aviso: 'Ainda NÃO foi feito: o dono precisa tocar em Confirmar.' }) };
           }
           const saida = await f.lerFerramenta(b.name, dados);
+          // lista de aparelhos: a tela mostra junto o painel com botões (vitrine, topo, catálogo, editar)
+          if (b.name === 'site_listar_aparelhos' && !acoes.some((a) => a.tipo === 'catalogo')) acoes.push({ tipo: 'catalogo', busca: String(dados.busca || '').slice(0, 60), filtro: dados.so_vitrine ? 'vitrine' : '' });
           return { type: 'tool_result', tool_use_id: b.id, content: JSON.stringify(saida).slice(0, 30000) };
         } catch (e) {
           return { type: 'tool_result', tool_use_id: b.id, content: 'erro: ' + e.message, is_error: true };

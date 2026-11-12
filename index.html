@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/style.css?v=17">
+  <link rel="stylesheet" href="assets/style.css?v=19">
 </head>
 <body>
   <!-- Cérebro 3D: ocupa a tela toda, atrás de tudo -->
@@ -67,6 +67,23 @@
         <ul class="crm-diag" id="crm-diag" hidden></ul>
       </div>
     </div>
+    <div class="hist" id="catalogo" hidden>
+      <div class="hist-fundo" data-fechar-cat></div>
+      <div class="hist-painel crm-painel cat-painel" role="dialog" aria-label="Aparelhos do site">
+        <div class="hist-topo"><b>📱 Aparelhos do site</b><button type="button" class="btn-mini" data-fechar-cat aria-label="Fechar">✕</button></div>
+        <div class="crm-abas" role="tablist">
+          <button type="button" class="crm-aba on" data-cat-filtro="">Todos</button>
+          <button type="button" class="crm-aba" data-cat-filtro="vitrine">🏪 Vitrine</button>
+          <button type="button" class="crm-aba" data-cat-filtro="topo">⭐ Topo</button>
+          <button type="button" class="crm-aba" data-cat-filtro="catalogo">📂 Catálogo</button>
+          <button type="button" class="crm-aba" data-cat-filtro="fora">Fora do site</button>
+        </div>
+        <div class="cat-busca-linha"><input type="search" id="cat-busca" class="crm-busca" placeholder="Procurar modelo, cor, armazenamento…" autocomplete="off"><button type="button" class="btn-mini" data-cat-add>＋ Adicionar</button></div>
+        <div class="cat-lista cat-lista-painel" id="cat-lista"></div>
+        <div id="cat-rodape"></div>
+        <datalist id="cat-cores"></datalist>
+      </div>
+    </div>
     <div class="hist" id="avisos" hidden>
       <div class="hist-fundo" data-fechar-avisos></div>
       <div class="hist-painel" role="dialog" aria-label="Mensagens para confirmar">
@@ -87,6 +104,6 @@
   </section>
 
   <script src="assets/cerebro.js?v=11"></script>
-  <script src="assets/app.js?v=19"></script>
+  <script src="assets/app.js?v=21"></script>
 </body>
 </html>

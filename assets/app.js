@@ -300,6 +300,272 @@
   $('#cb-foco').addEventListener('click', () => { focoManual = !focoManual && itens.length > 0; ajustarCerebro(); });
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && focoManual) { focoManual = false; ajustarCerebro(); } });
 
+  // ---------- Aparelhos do site: cartão na conversa + painel para editar, adicionar e publicar ----------
+  // As mudanças ficam pendentes (aparecem tracejadas) até o dono tocar em "Publicar no site": aí vai tudo num
+  // commit só no GitHub do site, como o botão Publicar do admin (o site atualiza em cerca de 1 minuto).
+  const CAT = { lista: null, cores: [], condicoes: ['Seminovo', 'Novo lacrado', 'Vitrine'], promo: null, em: 0, carregando: null, erro: '' };
+  const CHAVE_PEND = 'rbcentral_catalogo_pend';
+  let pend = new Map(), novos = [], tirar = new Set();
+  try {
+    const s = JSON.parse(localStorage.getItem(CHAVE_PEND) || 'null');
+    if (s) { pend = new Map(s.pend || []); novos = s.novos || []; tirar = new Set(s.tirar || []); }
+  } catch (e) { /* ignora */ }
+  const salvarPend = () => { try { localStorage.setItem(CHAVE_PEND, JSON.stringify({ pend: [...pend], novos, tirar: [...tirar] })); } catch (e) { /* ignora */ } };
+  const nPend = () => pend.size + novos.length + tirar.size;
+  const ONDE = [['vitrine', '🏪 Vitrine'], ['topo', '⭐ Topo'], ['disponivel', '📂 Catálogo']];
+  const precoTxt = (v) => (v > 0 ? 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) : '—');
+  const efetivo = (p) => (p._novo ? p : Object.assign({}, p, pend.get(p.id) || {}, tirar.has(p.id) ? { disponivel: false, vitrine: false, topo: false } : {}));
+  const todosAparelhos = () => novos.map((n) => Object.assign({ _novo: true, id: n._id }, n)).concat(CAT.lista || []);
+  const acharAparelho = (id) => todosAparelhos().find((p) => p.id === id);
+
+  async function carregarCatalogo(forcar) {
+    if (CAT.carregando) return CAT.carregando;
+    if (CAT.lista && !forcar && Date.now() - CAT.em < 60000) return null;
+    CAT.carregando = chamar('catalogo').then((d) => {
+      CAT.erro = d.motivo || '';
+      CAT.lista = Array.isArray(d.aparelhos) ? d.aparelhos : [];
+      if (Array.isArray(d.cores)) CAT.cores = d.cores;
+      if (Array.isArray(d.condicoes)) CAT.condicoes = d.condicoes;
+      CAT.promo = d.promocao_id || null;
+      $('#cat-cores').innerHTML = CAT.cores.map((c) => '<option value="' + esc(c) + '">').join('');
+      CAT.em = Date.now();
+      // mudanças pendentes de aparelhos que não existem mais caem fora
+      const ids = new Set(CAT.lista.map((p) => p.id));
+      [...pend.keys()].forEach((id) => { if (!ids.has(id)) pend.delete(id); });
+      [...tirar].forEach((id) => { if (!ids.has(id)) tirar.delete(id); });
+      salvarPend();
+    }).catch((e) => { CAT.erro = e.message; }).finally(() => { CAT.carregando = null; atualizarCatalogo(); });
+    return CAT.carregando;
+  }
+
+  function filtrar(lista, busca, filtro) {
+    const b = String(busca || '').toLowerCase().trim();
+    return lista.filter((p0) => {
+      const p = efetivo(p0);
+      if (b && ![p.modelo, p.armazenamento, p.cor, p.condicao, p.categoria].join(' ').toLowerCase().includes(b)) return false;
+      if (filtro === 'vitrine') return p.vitrine;
+      if (filtro === 'topo') return p.topo;
+      if (filtro === 'catalogo') return p.disponivel;
+      if (filtro === 'fora') return !p.vitrine && !p.topo && !p.disponivel;
+      return true;
+    });
+  }
+
+  function linhaAparelho(p0) {
+    const p = efetivo(p0), mudou = pend.get(p0.id) || {};
+    const fora = !p.vitrine && !p.topo && !p.disponivel;
+    return '<div class="cat-linha' + (fora ? ' fora' : '') + (p0._novo ? ' novo' : '') + '" data-id="' + esc(p0.id) + '">' +
+      '<span class="cat-cor" style="background:' + esc(/^#[0-9a-f]{6}$/i.test(p.corHex || '') ? p.corHex : '#1f2430') + '"></span>' +
+      '<div class="cat-info"><b>' + esc(p.modelo + ' ' + p.armazenamento) + '</b>' + (p0._novo ? ' <span class="cat-tag">novo</span>' : '') + (tirar.has(p0.id) ? ' <span class="cat-tag">sai do site</span>' : '') +
+        '<span>' + esc([p.cor, p.condicao, p.bateria ? p.bateria + '%' : '', p.encomenda ? 'encomenda' : ''].filter(Boolean).join(' · ')) + '</span>' +
+        '<strong' + ('preco' in mudou ? ' class="cat-mudou"' : '') + '>' + precoTxt(p.preco) + (p.precoAntigo > p.preco ? ' <s>' + precoTxt(p.precoAntigo) + '</s>' : '') + '</strong></div>' +
+      '<div class="cat-onde">' + ONDE.map(([k, r]) => '<button type="button" class="cat-tg' + (p[k] ? ' on' : '') + (k in mudou || tirar.has(p0.id) ? ' pend' : '') + '" data-cat-tg="' + k + '" aria-pressed="' + !!p[k] + '">' + r + '</button>').join('') +
+        '<button type="button" class="cat-tg cat-ed" data-cat-ed title="Editar preço, cor, bateria…">✏️</button></div>' +
+    '</div>';
+  }
+
+  function barraPendentes() {
+    const n = nPend();
+    return n ? '<div class="cat-pend"><span>' + n + (n === 1 ? ' alteração' : ' alterações') + ' sem publicar</span><button type="button" class="btn-mini" data-cat-desfazer>Desfazer</button><button type="button" class="btn btn-ouro cat-pub" data-cat-revisar>Revisar e publicar</button></div>' : '';
+  }
+
+  // cartão que aparece na conversa quando a IA lista os aparelhos
+  function conteudoCartaoCatalogo(it) {
+    if (!CAT.lista) { carregarCatalogo(); return '<h4>📱 Aparelhos do site</h4><div class="muted">' + (CAT.erro ? esc(CAT.erro) : 'Carregando…') + '</div>'; }
+    const lista = filtrar(todosAparelhos(), it.busca, it.filtro);
+    const mostra = lista.slice(0, 12);
+    const tudo = todosAparelhos().map(efetivo);
+    return '<h4>📱 Aparelhos do site' + (it.busca ? ' · “' + esc(it.busca) + '”' : '') + '</h4>' +
+      '<div class="muted cat-resumo">' + tudo.length + ' no total · ' + tudo.filter((p) => p.vitrine).length + ' na vitrine · ' + tudo.filter((p) => p.topo).length + ' no topo · ' + tudo.filter((p) => !p.vitrine && !p.topo && !p.disponivel).length + ' fora do site</div>' +
+      (mostra.length ? '<div class="cat-lista">' + mostra.map(linhaAparelho).join('') + '</div>' : '<div class="muted">Nenhum aparelho com essa busca.</div>') +
+      '<div class="botoes"><button type="button" class="btn-mini" data-cat-add>＋ Adicionar aparelho</button><button type="button" class="btn-mini" data-cat-abrir="' + esc(it.busca || '') + '">' + (lista.length > mostra.length ? 'Ver todos (' + lista.length + ')' : 'Abrir o painel') + '</button></div>' +
+      barraPendentes();
+  }
+  const cartaoCatalogo = (it, k) => '<div class="acao cat-card" data-cat-k="' + k + '">' + conteudoCartaoCatalogo(it) + '</div>';
+
+  // ---------- painel ----------
+  const PAINEL = { busca: '', filtro: '', editando: null, adicionando: false, revisao: null, publicando: false };
+  function abrirCatalogo(busca, id) {
+    PAINEL.busca = busca || ''; PAINEL.editando = id || null; PAINEL.adicionando = false; PAINEL.revisao = null;
+    $('#catalogo').hidden = false;
+    $('#cat-busca').value = PAINEL.busca;
+    desenharPainelCatalogo();
+    carregarCatalogo();
+    if (id) setTimeout(() => { const el = $('#cat-lista [data-id="' + CSS.escape(id) + '"]'); if (el) el.scrollIntoView({ block: 'center' }); }, 60);
+  }
+  const fecharCatalogo = () => { $('#catalogo').hidden = true; PAINEL.revisao = null; };
+
+  function campoForm(rotulo, html) { return '<label class="cat-campo"><span>' + rotulo + '</span>' + html + '</label>'; }
+  function formAparelho(p, novo) {
+    const v = (k) => esc(p[k] == null ? '' : p[k]);
+    return '<form class="cat-form" data-cat-form="' + (novo ? 'novo' : esc(p.id)) + '">' +
+      (novo ? campoForm('Modelo', '<input name="modelo" required placeholder="iPhone 15 Pro" value="' + v('modelo') + '">') + campoForm('Armazenamento', '<input name="armazenamento" required placeholder="128GB" value="' + v('armazenamento') + '">') : '') +
+      campoForm('Preço à vista (R$)', '<input name="preco" inputmode="decimal" required value="' + (p.preco || '') + '">') +
+      campoForm('Preço "de" (de/por)', '<input name="precoAntigo" inputmode="decimal" placeholder="opcional" value="' + (p.precoAntigo || '') + '">') +
+      campoForm('Cor', '<input name="cor" list="cat-cores" required value="' + v('cor') + '">') +
+      (novo ? '' : campoForm('Armazenamento', '<input name="armazenamento" value="' + v('armazenamento') + '">')) +
+      campoForm('Condição', '<select name="condicao">' + CAT.condicoes.map((c) => '<option' + (p.condicao === c ? ' selected' : '') + '>' + esc(c) + '</option>').join('') + '</select>') +
+      campoForm('Bateria (%)', '<input name="bateria" inputmode="numeric" placeholder="sem número" value="' + (p.bateria || '') + '">') +
+      campoForm('Prazo (se encomenda)', '<input name="prazo" placeholder="ex.: 5 a 10 dias úteis" value="' + v('prazo') + '">') +
+      '<div class="cat-checks">' + [['vitrine', '🏪 Vitrine'], ['topo', '⭐ Topo'], ['disponivel', '📂 Catálogo'], ['encomenda', '📦 Sob encomenda']]
+        .map(([k, r]) => '<label><input type="checkbox" name="' + k + '"' + (p[k] ? ' checked' : '') + '> ' + r + '</label>').join('') + '</div>' +
+      campoForm('Observações', '<textarea name="observacoes" rows="2">' + v('observacoes') + '</textarea>') +
+      '<div class="botoes"><button class="btn btn-ouro" type="submit">' + (novo ? 'Adicionar' : 'Aplicar') + '</button><button type="button" class="btn-mini" data-cat-cancelar>Cancelar</button>' +
+        (novo ? '' : p._novo ? '<button type="button" class="btn-mini cat-perigo" data-cat-descartar-novo>Descartar este novo</button>'
+          : tirar.has(p.id) ? '<button type="button" class="btn-mini" data-cat-voltar>Manter no site</button>' : '<button type="button" class="btn-mini cat-perigo" data-cat-tirar>Tirar do site</button>') + '</div>' +
+      '<p class="erro" data-cat-erro hidden></p></form>';
+  }
+
+  function desenharPainelCatalogo() {
+    const el = $('#cat-lista');
+    if (!el) return;
+    document.querySelectorAll('#catalogo .crm-aba').forEach((b) => b.classList.toggle('on', b.dataset.catFiltro === PAINEL.filtro));
+    if (PAINEL.revisao) {
+      const r = PAINEL.revisao;
+      $('#cat-rodape').innerHTML = ''; // na revisão, o botão de publicar fica no próprio resumo
+      el.innerHTML = '<div class="cat-revisao"><h4>Vai publicar no site:</h4>' +
+        (r.erro ? '<p class="erro">' + esc(r.erro) + '</p>' : r.linhas ? '<ul>' + r.linhas.map((l) => '<li>' + esc(l) + '</li>').join('') + '</ul>' : '<p class="muted">Conferindo…</p>') +
+        '<p class="muted">Se você tiver um rascunho não publicado no Admin do site, recarregue o Admin depois, para não sobrescrever esta mudança.</p>' +
+        '<div class="botoes"><button type="button" class="btn btn-ouro" data-cat-publicar' + (r.linhas && !PAINEL.publicando ? '' : ' disabled') + '>' + (PAINEL.publicando ? 'Publicando…' : 'Publicar no site') + '</button><button type="button" class="btn-mini" data-cat-voltar-lista>Voltar</button></div></div>';
+      return;
+    }
+    if (!CAT.lista) { el.innerHTML = '<p class="muted">' + (CAT.erro ? esc(CAT.erro) : 'Carregando…') + '</p>'; return; }
+    const lista = filtrar(todosAparelhos(), PAINEL.busca, PAINEL.filtro);
+    el.innerHTML = (PAINEL.adicionando ? '<div class="cat-bloco"><h4>＋ Novo aparelho</h4>' + formAparelho({ condicao: 'Seminovo', disponivel: true }, true) + '</div>' : '') +
+      (lista.length ? lista.map((p) => linhaAparelho(p) + (PAINEL.editando === p.id ? '<div class="cat-bloco">' + formAparelho(efetivo(p), false) + '</div>' : '')).join('')
+        : '<p class="muted">Nenhum aparelho nesse filtro.</p>');
+    $('#cat-rodape').innerHTML = barraPendentes() || '<p class="hist-nota">Toque nos botões para pôr ou tirar da vitrine, do topo e do catálogo. Nada muda no site até você tocar em Publicar.</p>';
+  }
+
+  // redesenha os cartões da conversa e o painel (sem redesenhar a conversa toda)
+  function atualizarCatalogo() {
+    itens.forEach((it, k) => { if (it.tipo === 'catalogo') { const el = $('#conversa [data-cat-k="' + k + '"]'); if (el) el.innerHTML = conteudoCartaoCatalogo(it); } });
+    if (!$('#catalogo').hidden) desenharPainelCatalogo();
+  }
+
+  function alternar(id, campo) {
+    const p0 = acharAparelho(id);
+    if (!p0) return;
+    if (p0._novo) { const n = novos.find((x) => x._id === id); n[campo] = !n[campo]; salvarPend(); return atualizarCatalogo(); }
+    const atual = efetivo(p0)[campo];
+    const c = Object.assign({}, pend.get(id) || {});
+    if (tirar.has(id)) { tirar.delete(id); ['vitrine', 'topo', 'disponivel'].forEach((k) => { if (p0[k]) c[k] = false; }); }
+    if (!atual === p0[campo]) delete c[campo]; else c[campo] = !atual;
+    if (Object.keys(c).length) pend.set(id, c); else pend.delete(id);
+    salvarPend(); atualizarCatalogo();
+  }
+
+  // lê o formulário e guarda só o que mudou em relação ao que está publicado
+  function lerForm(f) {
+    const g = (n) => (f.elements[n] ? f.elements[n].value.trim() : undefined);
+    const num = (t) => (t === '' || t === undefined ? 0 : Number(String(t).replace(/R\$\s*/i, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.')));
+    const d = {
+      preco: num(g('preco')), precoAntigo: num(g('precoAntigo')), cor: g('cor'), armazenamento: g('armazenamento'), condicao: g('condicao'),
+      bateria: g('bateria') ? Math.round(num(g('bateria'))) : null, prazo: g('prazo'), observacoes: g('observacoes'),
+      vitrine: f.elements.vitrine.checked, topo: f.elements.topo.checked, disponivel: f.elements.disponivel.checked, encomenda: f.elements.encomenda.checked
+    };
+    if (f.elements.modelo) d.modelo = g('modelo');
+    if (!(d.preco > 0)) throw new Error('Preço inválido.');
+    if (d.precoAntigo && d.precoAntigo <= d.preco) throw new Error('O preço "de" precisa ser maior que o preço.');
+    if (d.bateria !== null && !(d.bateria >= 1 && d.bateria <= 100)) throw new Error('Bateria: de 1 a 100%.');
+    if (!d.cor) throw new Error('Falta a cor.');
+    if (d.armazenamento !== undefined && d.armazenamento && !/^\d+\s*(GB|TB)?$/i.test(d.armazenamento)) throw new Error('Armazenamento: ex. 128GB.');
+    return d;
+  }
+
+  async function revisarPublicacao() {
+    PAINEL.revisao = {}; PAINEL.editando = null; PAINEL.adicionando = false;
+    if ($('#catalogo').hidden) $('#catalogo').hidden = false;
+    desenharPainelCatalogo();
+    try {
+      const d = await chamar('catalogo', { alteracoes: alteracoesPendentes(), publicar: false });
+      PAINEL.revisao = { linhas: d.linhas };
+    } catch (e) { PAINEL.revisao = { erro: e.message }; }
+    desenharPainelCatalogo();
+  }
+  const alteracoesPendentes = () => [...pend].map(([id, campos]) => ({ op: 'editar', id, campos }))
+    .concat([...tirar].map((id) => ({ op: 'remover', id })))
+    .concat(novos.map((n) => ({ op: 'novo', dados: Object.assign({}, n, { _id: undefined }) })));
+
+  async function publicarCatalogo() {
+    PAINEL.publicando = true; desenharPainelCatalogo();
+    try {
+      const d = await chamar('catalogo', { alteracoes: alteracoesPendentes(), publicar: true });
+      pend = new Map(); novos = []; tirar = new Set(); salvarPend();
+      PAINEL.revisao = null; PAINEL.publicando = false;
+      nota('📱 Publicado no site (atualiza em cerca de 1 minuto):\n' + (d.feito || []).join('\n'));
+      fecharCatalogo();
+      CAT.lista = null; carregarCatalogo(true);
+    } catch (e) {
+      PAINEL.publicando = false; PAINEL.revisao = { erro: e.message }; desenharPainelCatalogo();
+    }
+  }
+
+  // cliques nos cartões da conversa e no painel
+  function cliqueCatalogo(e) {
+    const t = e.target;
+    const linha = t.closest('.cat-linha');
+    const tg = t.closest('[data-cat-tg]');
+    if (tg && linha) { alternar(linha.dataset.id, tg.dataset.catTg); return true; }
+    if (t.closest('[data-cat-ed]') && linha) {
+      if ($('#catalogo').hidden) abrirCatalogo('', linha.dataset.id);
+      else { PAINEL.editando = PAINEL.editando === linha.dataset.id ? null : linha.dataset.id; PAINEL.adicionando = false; desenharPainelCatalogo(); }
+      return true;
+    }
+    if (t.closest('[data-cat-add]')) { if ($('#catalogo').hidden) abrirCatalogo(''); PAINEL.adicionando = true; PAINEL.editando = null; PAINEL.revisao = null; desenharPainelCatalogo(); $('#catalogo .hist-painel').scrollTop = 0; return true; }
+    const ab = t.closest('[data-cat-abrir]');
+    if (ab) { abrirCatalogo(ab.dataset.catAbrir); return true; }
+    if (t.closest('[data-cat-revisar]')) { revisarPublicacao(); return true; }
+    if (t.closest('[data-cat-desfazer]')) { if (confirm('Desfazer as alterações que ainda não foram publicadas?')) { pend = new Map(); novos = []; tirar = new Set(); salvarPend(); atualizarCatalogo(); } return true; }
+    return false;
+  }
+  $('#conversa').addEventListener('click', (e) => { cliqueCatalogo(e); });
+  $('#catalogo').addEventListener('click', (e) => {
+    if (e.target.closest('[data-fechar-cat]')) return fecharCatalogo();
+    const aba = e.target.closest('[data-cat-filtro]');
+    if (aba) { PAINEL.filtro = aba.dataset.catFiltro; PAINEL.revisao = null; return desenharPainelCatalogo(); }
+    if (cliqueCatalogo(e)) return;
+    const form = e.target.closest('.cat-form');
+    const id = form && form.dataset.catForm;
+    if (e.target.closest('[data-cat-cancelar]')) { PAINEL.editando = null; PAINEL.adicionando = false; return desenharPainelCatalogo(); }
+    if (e.target.closest('[data-cat-tirar]') && id) { tirar.add(id); pend.delete(id); PAINEL.editando = null; salvarPend(); return atualizarCatalogo(); }
+    if (e.target.closest('[data-cat-voltar]') && id) { tirar.delete(id); salvarPend(); return atualizarCatalogo(); }
+    if (e.target.closest('[data-cat-descartar-novo]') && id) { novos = novos.filter((n) => n._id !== id); PAINEL.editando = null; salvarPend(); return atualizarCatalogo(); }
+    if (e.target.closest('[data-cat-publicar]')) return publicarCatalogo();
+    if (e.target.closest('[data-cat-voltar-lista]')) { PAINEL.revisao = null; return desenharPainelCatalogo(); }
+  });
+  $('#catalogo').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const f = e.target.closest('.cat-form');
+    if (!f) return;
+    const erro = f.querySelector('[data-cat-erro]');
+    try {
+      const d = lerForm(f);
+      const id = f.dataset.catForm;
+      if (id === 'novo') {
+        if (!d.modelo || !d.armazenamento) throw new Error('Falta o modelo ou o armazenamento.');
+        novos.unshift(Object.assign({ _id: 'novo-' + Date.now().toString(36) }, d));
+        PAINEL.adicionando = false;
+      } else {
+        const p0 = acharAparelho(id);
+        if (p0._novo) { Object.assign(novos.find((n) => n._id === id), d); }
+        else {
+          const c = {};
+          Object.entries(d).forEach(([k, v]) => {
+            const orig = k === 'bateria' ? p0.bateria || null : k === 'precoAntigo' ? p0.precoAntigo || 0 : p0[k];
+            if (JSON.stringify(orig) !== JSON.stringify(v) && !(k === 'armazenamento' && String(v || '').toUpperCase().replace(/\s/g, '') === String(orig || '').toUpperCase())) c[k] = v;
+          });
+          tirar.delete(id);
+          if (Object.keys(c).length) pend.set(id, c); else pend.delete(id);
+        }
+        PAINEL.editando = null;
+      }
+      salvarPend(); atualizarCatalogo();
+    } catch (er) { erro.textContent = er.message; erro.hidden = false; }
+  });
+  $('#cat-busca').addEventListener('input', (e) => { PAINEL.busca = e.target.value; PAINEL.revisao = null; desenharPainelCatalogo(); });
+  addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#catalogo').hidden) fecharCatalogo(); });
+
   async function chamar(caminho, corpo) {
     const r = await fetch('api/' + caminho, {
       method: corpo ? 'POST' : 'GET',
@@ -359,6 +625,7 @@
             (it.estado === 'falhou' && /^https:\/\/wa\.me\/\d+\?text=/.test(it.link || '') ? '<div class="botoes"><a class="btn ok btn-zap" href="' + esc(it.link) + '" target="_blank" rel="noopener">Enviar pelo WhatsApp na mão</a></div>' : '') + '</div>';
         }
         if (it.tipo === 'aviso') return cartaoAviso(it, 'k' + k);
+        if (it.tipo === 'catalogo') return cartaoCatalogo(it, k);
         if (it.tipo === 'zap') {
           const seguro = /^https:\/\/wa\.me\/\d+\?text=/.test(it.link || '') ? it.link : '';
           return '<div class="acao zap' + (it.estado ? ' ' + it.estado : '') + '" data-k="' + k + '"><h4>' + (it.estado === 'aberta' ? '✅ ' : '📲 ') + esc(it.titulo) + '</h4>' +
@@ -421,9 +688,10 @@
       if (cerebro) cerebro.acender(d.usadas);
       novaResposta = { role: 'assistant', content: d.resposta };
       lista.push(novaResposta);
-      (d.acoes || []).forEach((a) => lista.push(a.tipo === 'whatsapp'
-        ? { tipo: 'zap', titulo: a.titulo, linhas: a.linhas, link: a.link }
-        : { tipo: 'acao', token: a.token, titulo: a.titulo, linhas: a.linhas, em: Date.now(), link: a.link }));
+      (d.acoes || []).forEach((a) => lista.push(a.tipo === 'catalogo' ? { tipo: 'catalogo', busca: a.busca || '', filtro: a.filtro || '' }
+        : a.tipo === 'whatsapp' ? { tipo: 'zap', titulo: a.titulo, linhas: a.linhas, link: a.link }
+          : { tipo: 'acao', token: a.token, titulo: a.titulo, linhas: a.linhas, em: Date.now(), link: a.link }));
+      if ((d.acoes || []).some((a) => a.tipo === 'catalogo')) carregarCatalogo(true);
     } catch (e) {
       lista.push({ tipo: 'nota', content: '⚠️ ' + e.message });
     }
