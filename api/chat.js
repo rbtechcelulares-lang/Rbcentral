@@ -115,6 +115,10 @@ module.exports = async (req, res) => {
   } catch (e) {
     if (e instanceof Anthropic.RateLimitError) return res.status(429).json({ erro: 'Muitas requisições agora. Tente de novo em instantes.' });
     if (e instanceof Anthropic.AuthenticationError) return res.status(500).json({ erro: 'ANTHROPIC_API_KEY inválida.' });
+    if (e instanceof Anthropic.BadRequestError) {
+      console.log('rb-central chat 400', e.message);
+      return res.status(502).json({ erro: 'A IA recusou o pedido (400): ' + String(e.message || '').replace(/\s+/g, ' ').slice(0, 180) });
+    }
     if (e instanceof Anthropic.APIError) return res.status(502).json({ erro: 'A IA está instável agora (' + e.status + ').' });
     return res.status(500).json({ erro: 'Erro: ' + e.message });
   }
