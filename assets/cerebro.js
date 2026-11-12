@@ -1,30 +1,83 @@
 // Cérebro do RB Central em 3D: uma rede de neurônios amarelos no fundo preto, que ocupa a tela toda, gira sozinha
 // no sentido anti-horário (visto de cima) e dá para girar arrastando com o mouse ou o dedo.
-// Os neurônios grandes são os sistemas: acendem quando a IA usa aquele sistema e, tocados, fazem a pergunta.
+// Os neurônios grandes são os sistemas e os mini neurônios em volta são as funções de cada um: acendem quando a
+// IA usa aquela função e, tocados, fazem a pergunta.
 // Com conversa na tela, ele fica escurecido no fundo para não atrapalhar a leitura.
 (() => {
   // posição de cada sistema no cérebro (x = lado, y = altura, z = frente)
   const NUCLEO = { id: 'nucleo', p: [0, 0.14, 0.05], rotulo: 'RB Central', pedido: 'Relatório do dia' };
+  // sub: [id, nome curto, pergunta que vai para a IA ao tocar, ferramentas da IA que acendem esse mini neurônio]
   const ABAS = [
-    { id: 'aparelhos', p: [-0.42, 0.42, 0.66], rotulo: 'Aparelhos', sistema: 'site', pedido: 'Lista os aparelhos do site com preço' },
-    { id: 'vitrine', p: [0.5, 0.12, 0.8], rotulo: 'Vitrine', sistema: 'site', pedido: 'Quais aparelhos estão na vitrine?' },
-    { id: 'clientes', p: [0.12, 0.7, 0.18], rotulo: 'Clientes', sistema: 'crm', pedido: 'Clientes novos do CRM' },
-    { id: 'cliques', p: [0.86, -0.14, 0.28], rotulo: 'Cliques', sistema: 'crm', pedido: 'Como foram os cliques e propostas do site hoje?' },
-    { id: 'os', p: [-0.66, 0.46, -0.32], rotulo: 'OS', sistema: 'os', pedido: 'OS abertas' },
-    { id: 'pagamentos', p: [0.48, 0.3, -0.82], rotulo: 'Pagamentos', sistema: 'os', pedido: 'Quais OS estão prontas e ainda não foram pagas?' },
-    { id: 'avisos', p: [-0.86, -0.06, 0.1], rotulo: 'Avisos', sistema: 'os', pedido: 'Quais clientes de OS precisam ser avisados hoje?' },
-    { id: 'metas', p: [0.34, -0.5, -0.66], rotulo: 'Metas', sistema: 'os', pedido: 'Como estão as metas?' },
-    { id: 'pecas', p: [0, -0.98, -0.34], rotulo: 'Peças', sistema: 'os', pedido: 'Pedidos de peças aos fornecedores' }
+    { id: 'aparelhos', p: [-0.42, 0.42, 0.66], rotulo: 'Aparelhos', sistema: 'site', pedido: 'Lista os aparelhos do site com preço', subs: [
+      ['ap-lista', 'Disponíveis', 'Quais aparelhos estão disponíveis no site?', ['site_listar_aparelhos']],
+      ['ap-preco', 'Preço', 'Quero mudar o preço de um aparelho do site', ['site_alterar_preco']],
+      ['ap-novo', 'Cadastrar', 'Quero cadastrar um aparelho novo no site', ['site_aparelho_adicionar']],
+      ['ap-editar', 'Cor e bateria', 'Quero mudar a cor, a bateria ou a condição de um aparelho do site', ['site_aparelho_editar']],
+      ['ap-tirar', 'Tirar do site', 'Quero tirar do site um aparelho que vendeu', ['site_aparelho_remover']]] },
+    { id: 'vitrine', p: [0.5, 0.12, 0.8], rotulo: 'Vitrine', sistema: 'site', pedido: 'Quais aparelhos estão na vitrine?', subs: [
+      ['vi-promo', 'Promoção', 'Quais aparelhos estão na vitrine de promoção?', ['site_vitrine']],
+      ['vi-topo', 'Topo', 'Quais aparelhos estão no topo do site?', []],
+      ['vi-catalogo', 'Catálogo', 'Quais aparelhos estão no catálogo do site?', []],
+      ['vi-fora', 'Fora do site', 'Quais aparelhos estão fora do site?', []]] },
+    { id: 'clientes', p: [0.12, 0.7, 0.18], rotulo: 'Clientes', sistema: 'crm', pedido: 'Clientes novos do CRM', subs: [
+      ['cl-site', 'CRM do site', 'Clientes novos do CRM do site', ['site_clientes_crm']],
+      ['cl-espera', 'Esperando', 'Quem está esperando resposta no WhatsApp?', ['whatsapp_crm']],
+      ['cl-negocia', 'Negociando', 'Como estão as negociações no WhatsApp?', []],
+      ['cl-conversa', 'Conversas', 'Me mostra a última conversa de WhatsApp de um cliente', ['whatsapp_conversa']]] },
+    { id: 'cliques', p: [0.86, -0.14, 0.28], rotulo: 'Cliques', sistema: 'crm', pedido: 'Como foram os cliques e propostas do site hoje?', subs: [
+      ['cq-visitas', 'Visitas', 'Quantas visitas o site teve hoje?', []],
+      ['cq-propostas', 'Propostas', 'Quantas propostas foram enviadas pelo site hoje?', []],
+      ['cq-vistos', 'Mais vistos', 'Quais aparelhos foram mais vistos no site hoje?', []]] },
+    { id: 'os', p: [-0.66, 0.46, -0.32], rotulo: 'OS', sistema: 'os', pedido: 'OS abertas', subs: [
+      ['os-abertas', 'Abertas', 'OS abertas', ['os_listar']],
+      ['os-nova', 'Nova OS', 'Quero abrir uma OS', ['os_criar']],
+      ['os-status', 'Status', 'Quero mudar o status de uma OS', ['os_mudar_status', 'os_configuracao']],
+      ['os-editar', 'Editar', 'Quero corrigir os dados de uma OS', ['os_editar']],
+      ['os-link', 'Link', 'Me passa o link de acompanhamento de uma OS', ['os_ver']]] },
+    { id: 'pagamentos', p: [0.48, 0.3, -0.82], rotulo: 'Pagamentos', sistema: 'os', pedido: 'Quais OS estão prontas e ainda não foram pagas?', subs: [
+      ['pg-receber', 'Receber', 'Quero registrar o pagamento de uma OS', ['os_marcar_pago']],
+      ['pg-pendentes', 'Sem pagar', 'Quais OS estão prontas e ainda não foram pagas?', []],
+      ['pg-formas', 'Formas', 'Quais formas de pagamento o sistema aceita?', []]] },
+    { id: 'avisos', p: [-0.86, -0.06, 0.1], rotulo: 'Avisos', sistema: 'os', pedido: 'Quais clientes de OS precisam ser avisados hoje?', subs: [
+      ['av-pronto', 'Pronto', 'Quero avisar o cliente de uma OS que já está pronta', ['os_aviso_pronto']],
+      ['av-cliente', 'Avisar', 'Quais clientes de OS precisam ser avisados hoje?', ['os_avisar_cliente']],
+      ['av-equipe', 'Equipe', 'Quero mandar uma mensagem para o Nizael', []]] },
+    { id: 'metas', p: [0.34, -0.5, -0.66], rotulo: 'Metas', sistema: 'os', pedido: 'Como estão as metas?', subs: [
+      ['me-mes', 'Do mês', 'Como estão as metas?', ['metas_listar']],
+      ['me-alterar', 'Alterar', 'Quero mudar o valor de uma meta', ['meta_alterar']],
+      ['me-dia', 'Relatório', 'Relatório do dia', ['relatorio_do_dia']]] },
+    { id: 'pecas', p: [0, -0.98, -0.34], rotulo: 'Peças', sistema: 'os', pedido: 'Pedidos de peças aos fornecedores', subs: [
+      ['pc-pedidos', 'Pedidos', 'Pedidos de peças aos fornecedores', ['pecas_listar_pedidos']],
+      ['pc-atraso', 'Atrasadas', 'Quais pedidos de peças estão atrasados?', []]] },
+    { id: 'whatsapp', p: [0.7, 0.5, -0.2], rotulo: 'WhatsApp', sistema: 'zap', pedido: 'Quem está esperando resposta no WhatsApp?', subs: [
+      ['wa-enviar', 'Enviar', 'Quero mandar uma mensagem de WhatsApp para um cliente', ['whatsapp_enviar']],
+      ['wa-follow', 'Follow-up', 'Quem eu preciso cobrar no WhatsApp?', []],
+      ['wa-buscar', 'Não buscou', 'Quem fechou e não buscou o aparelho?', []],
+      ['wa-perdas', 'Perdas', 'Por que os clientes não fecharam este mês?', ['relatorio_perdas']]] },
+    { id: 'vendas', p: [-0.4, -0.2, -0.82], rotulo: 'Vendas', sistema: 'os', pedido: 'Quais celulares tenho no estoque?', subs: [
+      ['ve-vender', 'Vender', 'Quero registrar uma venda', ['venda_registrar']],
+      ['ve-estoque', 'Estoque', 'Quais celulares tenho no estoque?', ['estoque_aparelhos']],
+      ['ve-acess', 'Acessórios', 'Quais acessórios tenho em estoque?', ['produtos_listar']],
+      ['ve-troca', 'Troca', 'Quero cadastrar no estoque um aparelho que entrou na troca', ['aparelho_cadastrar']]] }
   ];
-  // ferramenta da IA → neurônio que acende quando ela é usada
-  const FERRAMENTA_ABA = {
-    site_listar_aparelhos: ['aparelhos', 'vitrine'], site_alterar_preco: ['aparelhos'], site_vitrine: ['vitrine'],
-    site_clientes_crm: ['clientes'], relatorio_do_dia: ['nucleo', 'cliques', 'metas'],
-    os_listar: ['os'], os_ver: ['os'], os_configuracao: ['os'], os_criar: ['os'], os_editar: ['os'], os_mudar_status: ['os'],
-    os_marcar_pago: ['pagamentos'], os_avisar_cliente: ['avisos'], metas_listar: ['metas'], meta_alterar: ['metas'], pecas_listar_pedidos: ['pecas'],
-    estoque_aparelhos: ['os'], produtos_listar: ['pecas'], venda_registrar: ['pagamentos'], aparelho_cadastrar: ['os'],
-    whatsapp_enviar: ['nucleo'], whatsapp_crm: ['clientes'], whatsapp_conversa: ['clientes'], relatorio_perdas: ['clientes', 'nucleo'], os_aviso_pronto: ['avisos']
-  };
+  // ferramenta da IA → neurônios que acendem (o mini neurônio e o sistema dele)
+  const FERRAMENTA_ABA = { relatorio_do_dia: ['nucleo', 'cliques', 'cq-visitas', 'cq-propostas', 'cq-vistos'] };
+  ABAS.forEach((a) => a.subs.forEach(([id, , , fs]) => fs.forEach((f) => { (FERRAMENTA_ABA[f] = FERRAMENTA_ABA[f] || []).push(id, a.id); })));
+  // mini neurônios em volta do sistema, na superfície do cérebro
+  const MINIS = [];
+  ABAS.forEach((a) => {
+    const centro = a.p[1] < -0.6 ? [0, -0.5, -0.45] : [Math.sign(a.p[0] || 1) * 0.37, 0.1, 0];
+    let n = a.p.map((v, k) => v - centro[k]); const ln = Math.hypot(...n) || 1; n = n.map((v) => v / ln);
+    const ref = Math.abs(n[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
+    const cruz = (u, v) => [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+    const norm = (v) => { const l = Math.hypot(...v) || 1; return v.map((x) => x / l); };
+    const u = norm(cruz(n, ref)), w = cruz(n, u);
+    a.subs.forEach(([id, rotulo, pedido], k) => {
+      const ang = (k / a.subs.length) * Math.PI * 2 + 0.4, r = 0.17 + (k % 2) * 0.05;
+      const p = a.p.map((v, j) => v + (u[j] * Math.cos(ang) + w[j] * Math.sin(ang)) * r + n[j] * 0.03);
+      MINIS.push({ id, rotulo, pedido, pai: a, p });
+    });
+  });
   // cores da Central: amarelo-ouro no preto (AMARELO = linhas, CLARO = rede de dentro, OURO = sistemas)
   const AMARELO = [245, 197, 66], CLARO = [255, 232, 160], OURO = [255, 214, 102];
 
@@ -116,7 +169,7 @@
     const ctx = canvas.getContext('2d');
     const parado = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const celular = Math.min(innerWidth, innerHeight) < 600;
-    const modelo = montarCerebro(celular ? 1500 : 2300);
+    const modelo = montarCerebro(celular ? 1700 : 2600);
     const N = modelo.pts.length;
     const proj = new Float32Array(N * 3); // x, y na tela e profundidade
     const luzPt = new Float32Array(N); // brilho de cada ponto: frente + contorno (borda do cérebro mais acesa)
@@ -293,6 +346,21 @@
         ctx.drawImage(on ? sOuro : sApagado, q[0] - tam / 2, q[1] - tam / 2, tam, tam);
         ctx.globalAlpha = 1;
       });
+      // mini neurônios (subfunções) ligados ao sistema deles
+      MINIS.forEach((m, i) => {
+        const q = projetar(m.p, cy, sy, cp, sp);
+        m._x = q[0]; m._y = q[1]; m._z = q[2];
+        const pai = m.pai, on = est.ligado[pai.sistema], usado = (est.usado[m.id] || 0) > t;
+        const frente = 0.4 + (q[2] + 1) * 0.3;
+        ctx.strokeStyle = 'rgba(' + OURO.join(',') + ',' + ((on ? (usado ? 0.95 : 0.3) : 0.07) * luz * frente) + ')';
+        ctx.lineWidth = usado ? 1.6 : 0.8;
+        ctx.beginPath(); ctx.moveTo(pai._x, pai._y); ctx.lineTo(q[0], q[1]); ctx.stroke();
+        const pisca = 0.75 + 0.25 * Math.sin(seg * 2.2 + i);
+        const tam = (on ? (usado ? 30 + 6 * Math.sin(seg * 9) : 15 * pisca) : 9) * (0.7 + (q[2] + 1) * 0.25);
+        ctx.globalAlpha = (on ? 0.9 : 0.3) * luz * frente;
+        ctx.drawImage(on ? sOuro : sApagado, q[0] - tam / 2, q[1] - tam / 2, tam, tam);
+        ctx.globalAlpha = 1;
+      });
       const tn = (56 + pulsoNucleo * 30 + est.falando * 40) * (est.ouvindo ? 1.3 : 1);
       ctx.globalAlpha = Math.min(1, 0.95 * luz);
       ctx.drawImage(sOuro, nucleo[0] - tn / 2, nucleo[1] - tn / 2, tn, tn);
@@ -304,14 +372,37 @@
         ctx.font = '700 ' + (celular ? 11.5 : 12.5) + 'px Manrope, system-ui, sans-serif';
         ctx.textAlign = 'center';
         ctx.lineWidth = 3; ctx.lineJoin = 'round';
-        ABAS.concat([Object.assign(NUCLEO, { _x: nucleo[0], _y: nucleo[1], _z: nucleo[2] })]).forEach((a) => {
+        // primeiro os sistemas (nome em negrito), depois as subfunções (nome pequeno, para fora do sistema);
+        // um nome que encostaria em outro não aparece agora (aparece quando o cérebro gira)
+        const ocupado = [];
+        const cabe = (x, y, w, h) => !ocupado.some((r) => x < r[0] + r[2] && x + w > r[0] && y < r[1] + r[3] && y + h > r[1]);
+        const escrever = (txt, x, y, cor, alfa, tam) => {
+          const w = ctx.measureText(txt).width + 4, h = tam + 2;
+          if (!cabe(x - w / 2, y - h + 2, w, h)) return false;
+          ocupado.push([x - w / 2, y - h + 2, w, h]);
+          ctx.globalAlpha = alfa;
+          ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.strokeText(txt, x, y);
+          ctx.fillStyle = cor; ctx.fillText(txt, x, y);
+          return true;
+        };
+        const tamSistema = celular ? 11.5 : 12.5, tamSub = celular ? 9.5 : 10.5;
+        ctx.font = '700 ' + tamSistema + 'px Manrope, system-ui, sans-serif';
+        ctx.lineWidth = 3;
+        [Object.assign(NUCLEO, { _x: nucleo[0], _y: nucleo[1], _z: nucleo[2] })].concat(ABAS.slice().sort((a, b) => b._z - a._z)).forEach((a) => {
           if (a._z < -0.25) return;
           const on = a === NUCLEO || est.ligado[a.sistema];
-          ctx.globalAlpha = Math.min(1, (a._z + 0.25) * 1.6) * est.alfa * (on ? 1 : 0.55);
-          const y = a._y + (a === NUCLEO ? 30 : -14);
-          ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.strokeText(a.rotulo, a._x, y);
-          ctx.fillStyle = a === NUCLEO ? '#f5c542' : on ? '#f4efe6' : '#8a8172';
-          ctx.fillText(a.rotulo, a._x, y);
+          escrever(a.rotulo, a._x, a._y + (a === NUCLEO ? 30 : -14), a === NUCLEO ? '#f5c542' : on ? '#f4efe6' : '#8a8172',
+            Math.min(1, (a._z + 0.25) * 1.6) * est.alfa * (on ? 1 : 0.55), tamSistema);
+        });
+        ctx.font = '600 ' + tamSub + 'px Manrope, system-ui, sans-serif';
+        ctx.lineWidth = 2.5;
+        MINIS.slice().sort((a, b) => b._z - a._z).forEach((m) => {
+          if (m._z < 0.05) return;
+          const on = est.ligado[m.pai.sistema];
+          let dx = m._x - m.pai._x, dy = m._y - m.pai._y;
+          const d = Math.hypot(dx, dy) || 1; dx /= d; dy /= d;
+          escrever(m.rotulo, m._x + dx * 14, m._y + dy * 12 + 4, (est.usado[m.id] || 0) > t ? '#ffe9a8' : on ? '#d9cfbd' : '#7d7466',
+            Math.min(1, (m._z - 0.05) * 2.2) * est.alfa * (on ? 0.85 : 0.45), tamSub);
         });
         ctx.globalAlpha = 1;
       }
@@ -328,11 +419,12 @@
     // ---------- girar com o mouse ou o dedo; toque rápido num sistema faz a pergunta ----------
     const sistemaPerto = (x, y) => {
       if (est.modo !== 'foco') return null;
-      let melhor = null, dm = (celular ? 34 : 26) ** 2;
-      ABAS.concat([NUCLEO]).forEach((a) => {
+      let melhor = null, dm = Infinity;
+      ABAS.concat([NUCLEO], MINIS).forEach((a) => {
         if (a._x === undefined || a._z < -0.35) return;
+        const raio = MINIS.includes(a) ? (celular ? 20 : 15) : (celular ? 30 : 24);
         const d = (a._x - x) ** 2 + (a._y - y) ** 2;
-        if (d < dm) { dm = d; melhor = a; }
+        if (d < raio * raio && d < dm) { dm = d; melhor = a; }
       });
       return melhor;
     };
@@ -384,7 +476,7 @@
         est.alvoAlfa = est.modo === 'fundo' ? 0.35 : est.modo === 'login' ? 0.85 : 1;
       },
       // status: { site, crm, sistema_os } → acende/apaga os sistemas
-      status(s) { est.ligado = { site: !!(s && s.site), crm: !!(s && s.crm), os: !!(s && s.sistema_os) }; },
+      status(s) { est.ligado = { site: !!(s && s.site), crm: !!(s && s.crm), os: !!(s && s.sistema_os), zap: !!(s && (s.whatsapp || s.crm_whatsapp)) }; },
       pensando(sim) { est.pensando = !!sim; },
       // microfone ligado: o cérebro inteiro acende mais forte
       ouvindo(sim) { est.ouvindo = !!sim; },
