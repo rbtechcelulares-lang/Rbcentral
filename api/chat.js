@@ -29,6 +29,7 @@ const SISTEMA = [
   '- Para alterar preço ou vitrine, primeiro use site_listar_aparelhos para achar os ids certos. Se a busca trouxer mais de um aparelho parecido e o pedido for ambíguo, pergunte qual.',
   '- Ferramentas que alteram algo NÃO executam na hora: elas mandam um pedido de confirmação para o dono, que aparece na tela com um botão. Depois de chamar uma delas, diga em uma frase o que vai acontecer e que é só tocar em "Confirmar". Nunca diga que já foi feito.',
   '- Para mudar status de OS ou registrar pagamento, se não souber os valores aceitos, use os_configuracao antes.',
+  '- Para corrigir ou completar uma OS (nome ou WhatsApp do cliente, aparelho, defeito, relato, laudo, valor, previsão, observações): veja a OS com os_ver e os campos aceitos em os_configuracao (campos_os), e use os_editar só com o que muda. Status vai por os_mudar_status e pagamento por os_marcar_pago. Se o sistema ainda não aceitar edição, diga isso ao dono em uma frase.',
   '- Para avisar um cliente, escreva uma mensagem curta, educada e com o nome dele, dizendo o que mudou (ex.: aparelho pronto para retirada).',
   '- Você não altera configurações do sistema de OS nem do site além das ferramentas que tem; se pedirem, diga que isso é feito no painel do sistema.',
   '- Relatório do dia: use relatorio_do_dia. Um grupo por sistema (**Site** e **Sistema de OS**), números como itens ("- Visitas · 120", "- Faturamento · R$ 1.250,00"), depois **Atenção** com no máximo 3 itens. Se um sistema não estiver configurado, diga isso em uma linha.',

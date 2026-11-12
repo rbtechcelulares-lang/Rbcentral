@@ -41,11 +41,12 @@ Toda chamada vem com o cabeçalho `Authorization: Bearer <SAAS_API_TOKEN>`.
 
 | Método | Caminho | Corpo / query | Resposta |
 |---|---|---|---|
-| GET | `/status` | — | `{ "status_os": ["Recebido", "Em análise", ...], "formas_pagamento": ["pix", "dinheiro", "cartão"] }` |
+| GET | `/status` | — | `{ "status_os": ["Recebido", "Em análise", ...], "formas_pagamento": ["pix", "dinheiro", "cartão"], "campos_os": [CAMPO, ...] }` |
 | GET | `/os` | `?status=&desde=AAAA-MM-DD&busca=&limite=30` | `{ "os": [OS, ...] }` |
 | GET | `/os/:id` | `:id` = id ou número da OS | `{ "os": OS }` |
 | POST | `/os` | `{ "cliente": {"nome", "whatsapp"}, "aparelho": {"marca", "modelo"}, "defeito", "relato", "valor": número ou null }` | `{ "os": OS }` |
 | PATCH | `/os/:id` | `{ "status": "<um de status_os>" }` | `{ "os": OS }` |
+| POST | `/os/:id/editar` | `{ "alterar": { "<campo de campos_os>": valor, ... } }` | `{ "os": OS }` (ver **Editar OS** abaixo) |
 | POST | `/os/:id/pagamento` | `{ "valor": número, "forma": "<uma de formas_pagamento>" }` | `{ "os": OS }` (com `pago: true`) |
 | POST | `/os/:id/avisar` | `{ "mensagem": "texto" }` | `{ "enviado": true }` se o sistema enviou pelo WhatsApp dele, ou `{ "enviado": false, "link_whatsapp": "https://wa.me/55...?text=..." }` |
 | GET | `/metas` | — | `{ "metas": [{ "id", "nome", "periodo", "valor_meta", "valor_atual" }] }` |
@@ -104,6 +105,14 @@ Central, a Central chama `POST /api/central/eventos/enviado` com `{ "tipo", "id"
 - Se a soma dos pagamentos + o valor da troca não bater com o total (itens − desconto), responda
   `400 {"erro": "..."}` dizendo a diferença.
 - Aparelho que não está disponível, produto sem estoque ou id de outra loja: `400`/`404` com o motivo.
+
+**Editar OS** (`POST /os/:id/editar`): muda só os campos enviados, com as mesmas regras da tela de
+editar OS do sistema. `CAMPO` = `{ "campo": "cliente_nome", "nome": "Nome do cliente", "tipo": "texto" |
+"numero" | "data" | "opcao", "opcoes": [...] }` (opcoes só no tipo opcao). Os nomes de `campos_os` são os
+mesmos usados em `alterar` e na resposta da OS (no nível de cima da OS, além de `cliente` e `aparelho`).
+Status e pagamento não passam por aqui (têm rotas próprias); senha ou padrão de desbloqueio do aparelho
+nunca entram em `campos_os`. Campo fora da lista ou valor inválido: `400 {"erro": "..."}` sem mudar
+nada. Prompt para o sistema: `docs/PROMPT-EDITAR-OS.md`.
 
 **OS** = `{ "id", "loja", "numero", "cliente": {"nome", "whatsapp"}, "aparelho": {"marca", "modelo"}, "defeito", "relato", "status", "valor", "pago", "criado_em", "atualizado_em" }`
 
