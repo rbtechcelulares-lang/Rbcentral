@@ -207,7 +207,70 @@
     else n.textContent = 'Guardo as 6 últimas conversas. Conferindo a nuvem…';
     $('#hist-sql').hidden = !(nuvem.ok === false && /SQL/.test(nuvem.motivo || ''));
   }
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') sincronizar(); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { sincronizar(); carregarAvisos(); } });
+
+  // ---------- Avisos de status de OS: o cliente só recebe quando o dono toca em "Enviar" ----------
+  let avisosPendentes = [];
+  const estadoAviso = {}; // id → { estado, resultado, link } (o que já foi feito nesta tela)
+  function cartaoAviso(a, chave) {
+    const st = Object.assign({}, a, estadoAviso[a.id] || {});
+    const seguro = /^https:\/\/wa\.me\/\d+\?text=/.test(st.link || '') ? st.link : '';
+    const icone = st.estado === 'enviado' ? '✅ ' : st.estado === 'descartado' ? '✖ ' : st.estado === 'falhou' ? '⚠️ ' : st.estado === 'enviando' ? '⏳ ' : '📣 ';
+    const [para, ...msg] = st.linhas || [];
+    return '<div class="acao aviso ' + (st.estado || '') + '" data-aviso="' + esc(a.id) + '" data-chave="' + chave + '"><h4>' + icone + esc(st.titulo) + '</h4>' +
+      (para ? '<div class="aviso-para">' + esc(para) + '</div>' : '') +
+      '<div class="zap-msg">' + fmt(msg.join('\n')) + '</div>' +
+      (st.resultado ? '<div class="muted">' + fmt(st.resultado) + '</div>' : '') +
+      (!st.estado || st.estado === 'falhou' ? '<div class="botoes"><button class="btn ok" data-av="' + esc(a.id) + '" data-acao="enviar">Enviar</button><button class="btn nao" data-av="' + esc(a.id) + '" data-acao="descartar">Descartar</button></div>' : '') +
+      (seguro ? '<div class="botoes"><a class="btn ok btn-zap" href="' + esc(seguro) + '" target="_blank" rel="noopener">Abrir no WhatsApp</a></div>' : '') + '</div>';
+  }
+  async function carregarAvisos() {
+    if (!token) return;
+    try {
+      const d = await chamar('avisos');
+      avisosPendentes = Array.isArray(d.avisos) ? d.avisos : [];
+    } catch (e) { return; }
+    // um aviso pendente na lista some do cartão da conversa só depois que for resolvido
+    mostrarBarraAvisos();
+    if (!$('#avisos').hidden) desenharAvisos();
+  }
+  function mostrarBarraAvisos() {
+    const n = avisosPendentes.filter((a) => !estadoAviso[a.id] || estadoAviso[a.id].estado === 'falhou').length;
+    $('#avisos-barra').hidden = !n;
+    $('#avisos-n').textContent = n + (n === 1 ? ' aviso de OS para confirmar' : ' avisos de OS para confirmar');
+  }
+  function desenharAvisos() {
+    const lista = avisosPendentes.map((a) => cartaoAviso(a, 'p'));
+    $('#avisos-lista').innerHTML = lista.length ? lista.map((h) => '<li>' + h + '</li>').join('') : '<li class="hist-vazio">Nenhum aviso esperando. 👍</li>';
+  }
+  async function acaoAviso(id, acao) {
+    if (!id || (estadoAviso[id] && estadoAviso[id].estado === 'enviando')) return;
+    const marcar = (estado, resultado, link) => {
+      estadoAviso[id] = { estado, resultado, link };
+      conversas.forEach((c) => c.itens.forEach((x) => {
+        if (x.tipo === 'aviso' && x.id === id) { Object.assign(x, estadoAviso[id]); c.pendente = true; agendarEnvio(c); }
+      }));
+      gravarLocal(); desenhar(); desenharAvisos(); mostrarBarraAvisos();
+    };
+    marcar('enviando', acao === 'enviar' ? 'Enviando…' : 'Descartando…');
+    try {
+      const d = await chamar('avisos', { acao, id });
+      if (acao === 'descartar') marcar('descartado', 'Descartado: o cliente não recebeu.');
+      else if (d.link) { marcar('enviado', 'O envio automático está desligado: abra o WhatsApp para mandar.', d.link); window.open(d.link, '_blank', 'noopener'); }
+      else marcar('enviado', 'Enviado para o cliente pelo WhatsApp da loja.');
+      avisosPendentes = avisosPendentes.filter((a) => a.id !== id);
+    } catch (e) {
+      marcar('falhou', e.message);
+    }
+    mostrarBarraAvisos(); desenharAvisos();
+  }
+  $('#avisos-barra').addEventListener('click', () => { desenharAvisos(); $('#avisos').hidden = false; carregarAvisos(); });
+  $('#avisos').addEventListener('click', (e) => {
+    if (e.target.closest('[data-fechar-avisos]')) { $('#avisos').hidden = true; return; }
+    const b = e.target.closest('[data-av]');
+    if (b) acaoAviso(b.dataset.av, b.dataset.acao);
+  });
+  setInterval(() => { if (document.visibilityState === 'visible' && !$('#app').hidden) carregarAvisos(); }, 60000);
 
   // cérebro: cada neurônio é uma aba de um sistema; tocar nele pede aquilo para a IA
   let cerebro = null;
@@ -263,6 +326,7 @@
         .map(([n, on]) => '<span class="con' + (on ? ' on' : '') + '">' + (on ? '● ' : '○ ') + n + '</span>').join('');
     } catch (e) { /* mostrado ao usar */ }
     sincronizar(true);
+    carregarAvisos();
   }
 
   function desenhar(rolar) {
@@ -279,6 +343,7 @@
             // se o envio automático do WhatsApp falhar, dá para mandar na mão
             (it.estado === 'falhou' && /^https:\/\/wa\.me\/\d+\?text=/.test(it.link || '') ? '<div class="botoes"><a class="btn ok btn-zap" href="' + esc(it.link) + '" target="_blank" rel="noopener">Enviar pelo WhatsApp na mão</a></div>' : '') + '</div>';
         }
+        if (it.tipo === 'aviso') return cartaoAviso(it, 'k' + k);
         if (it.tipo === 'zap') {
           const seguro = /^https:\/\/wa\.me\/\d+\?text=/.test(it.link || '') ? it.link : '';
           return '<div class="acao zap' + (it.estado ? ' ' + it.estado : '') + '" data-k="' + k + '"><h4>' + (it.estado === 'aberta' ? '✅ ' : '📲 ') + esc(it.titulo) + '</h4>' +
@@ -292,6 +357,7 @@
         return '<div class="m ia" data-k="' + k + '">' + md(it.content) + '</div>';
       }).join('');
     c.querySelectorAll('[data-ok]').forEach((b) => b.addEventListener('click', () => confirmar(Number(b.dataset.ok))));
+    c.querySelectorAll('[data-av]').forEach((b) => b.addEventListener('click', () => acaoAviso(b.dataset.av, b.dataset.acao)));
     c.querySelectorAll('[data-zap]').forEach((b) => b.addEventListener('click', () => {
       const it = itens[Number(b.dataset.zap)];
       if (it && it.estado !== 'aberta') { it.estado = 'aberta'; setTimeout(() => { guardar(); desenhar(); }, 300); }
@@ -361,6 +427,11 @@
       const r = d.resultado || {};
       it.resultado = Array.isArray(r.feito) ? r.feito.join('\n') : r.link_whatsapp ? (r.enviado ? 'Mensagem enviada.' : 'Abra para enviar: ' + r.link_whatsapp) : 'Feito.';
       nota('Confirmado e executado: ' + it.titulo, conv);
+      if (r.aviso && r.aviso.id) conv.itens.push({ tipo: 'aviso', id: r.aviso.id, titulo: r.aviso.titulo, linhas: r.aviso.linhas });
+      (r.acoes || []).forEach((a) => conv.itens.push(a.tipo === 'whatsapp'
+        ? { tipo: 'zap', titulo: a.titulo, linhas: a.linhas, link: a.link }
+        : { tipo: 'acao', token: a.token, titulo: a.titulo, linhas: a.linhas, em: Date.now(), link: a.link }));
+      if (r.aviso || r.acoes) { guardar(conv); if (conv === atual) desenhar(); carregarAvisos(); }
       if (r.link_whatsapp && !r.enviado) window.open(r.link_whatsapp, '_blank', 'noopener');
     } catch (e) {
       it.estado = 'falhou'; it.resultado = e.message;

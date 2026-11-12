@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/style.css?v=11">
+  <link rel="stylesheet" href="assets/style.css?v=12">
 </head>
 <body>
   <!-- Login -->
@@ -50,6 +50,15 @@
       <div class="cerebro-desenho" id="cerebro-desenho"></div>
       <p class="cb-dica">Toque num neurônio para abrir aquele sistema</p>
     </div>
+    <button type="button" class="avisos-barra" id="avisos-barra" hidden>📣 <span id="avisos-n">avisos de OS para confirmar</span> <span class="avisos-ver">ver</span></button>
+    <div class="hist" id="avisos" hidden>
+      <div class="hist-fundo" data-fechar-avisos></div>
+      <div class="hist-painel" role="dialog" aria-label="Avisos de OS para confirmar">
+        <div class="hist-topo"><b>Avisos de OS para confirmar</b><button type="button" class="btn-mini" data-fechar-avisos aria-label="Fechar">✕</button></div>
+        <ul class="avisos-lista" id="avisos-lista"></ul>
+        <p class="hist-nota">Toda mudança de status de OS gera um aviso para o cliente. Ele só sai quando você toca em Enviar.</p>
+      </div>
+    </div>
     <main class="conversa" id="conversa" aria-live="polite"></main>
     <form class="enviar" id="enviar">
       <textarea id="msg" rows="1" maxlength="2000" enterkeyhint="enter" placeholder="O que você precisa?"></textarea>
@@ -61,6 +70,6 @@
   </section>
 
   <script src="assets/cerebro.js?v=6"></script>
-  <script src="assets/app.js?v=12"></script>
+  <script src="assets/app.js?v=13"></script>
 </body>
 </html>

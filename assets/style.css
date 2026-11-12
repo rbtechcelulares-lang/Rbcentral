@@ -205,3 +205,13 @@ body { background: var(--fundo); color: var(--texto); font: 15px/1.5 Manrope, sy
 .acao li { white-space: pre-wrap; }
 .acao .btn-zap { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; background: #25d366; color: #0b1f12; }
 .zap-dica { margin-top: 8px; font-size: 12.5px; }
+
+/* ---------- Avisos de status de OS para confirmar ---------- */
+.avisos-barra { display: flex; align-items: center; gap: 6px; width: 100%; border: 0; border-bottom: 1px solid var(--borda); background: rgba(245,197,66,.12); color: var(--ouro); font: inherit; font-weight: 700; font-size: 14px; padding: 10px 16px; cursor: pointer; text-align: left; }
+.avisos-barra[hidden] { display: none; }
+.avisos-barra .avisos-ver { margin-left: auto; font-size: 12.5px; text-decoration: underline; opacity: .85; }
+.avisos-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.avisos-lista .acao { margin: 0; }
+.acao.aviso .aviso-para { font-size: 12.5px; color: var(--apagado); margin-top: 2px; }
+.acao.aviso .zap-msg { white-space: pre-wrap; background: #0f1a12; border: 1px solid #1f3a27; border-radius: 12px; padding: 10px 12px; margin: 6px 0 10px; line-height: 1.45; }
+.acao.aviso.enviado, .acao.aviso.descartado { opacity: .8; }

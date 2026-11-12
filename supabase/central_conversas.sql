@@ -1,5 +1,5 @@
 -- RB Central · histórico das 6 últimas conversas (o mesmo no iPhone e no computador)
--- e contador diário de uso (limite de transcrições revisadas pelo Claude).
+-- e contador diário de uso, e avisos de status de OS esperando confirmação.
 -- Rode no Supabase do SITE (o mesmo do CRM): SQL Editor › New query › cole tudo › Run.
 -- Precisa do clientes.sql do site já rodado (usa a mesma chave do painel).
 -- Pode rodar de novo sem perder nada.
@@ -108,3 +108,85 @@ end;
 $$;
 revoke all on function public.central_uso_contar(text, text, integer) from public;
 grant execute on function public.central_uso_contar(text, text, integer) to anon, authenticated;
+
+-- ---------------------------------------------------------------------------------------------
+-- Avisos de mudança de status de OS esperando o dono confirmar (botão "Enviar" na Central)
+create table if not exists public.central_avisos (
+  id text primary key check (id ~ '^[a-z0-9]{8,32}$'),
+  os_id text not null check (char_length(os_id) between 1 and 60),
+  status text not null check (char_length(status) between 1 and 60),
+  estado text not null default 'pendente' check (estado in ('pendente', 'enviado', 'descartado')),
+  dados jsonb not null,
+  criado timestamptz not null default now(),
+  atualizado timestamptz not null default now()
+);
+create unique index if not exists central_avisos_pendente_idx on public.central_avisos (os_id, status) where estado = 'pendente';
+alter table public.central_avisos enable row level security;
+revoke all on public.central_avisos from anon, authenticated;
+
+-- Guarda o aviso (um por OS e status enquanto estiver pendente). Devolve o id, ou null se esse
+-- mesmo aviso já foi enviado nas últimas 12 horas.
+create or replace function public.central_aviso_criar(chave text, p_id text, p_os_id text, p_status text, p_dados jsonb)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v text;
+begin
+  perform painel_checar(chave);
+  if exists (select 1 from central_avisos where os_id = p_os_id and status = p_status and estado = 'enviado' and atualizado > now() - interval '12 hours') then
+    return null;
+  end if;
+  insert into central_avisos (id, os_id, status, dados) values (p_id, p_os_id, p_status, p_dados)
+  on conflict (os_id, status) where estado = 'pendente' do update set dados = excluded.dados, atualizado = now()
+  returning id into v;
+  delete from central_avisos where estado <> 'pendente' and atualizado < now() - interval '30 days';
+  return v;
+end;
+$$;
+revoke all on function public.central_aviso_criar(text, text, text, text, jsonb) from public;
+grant execute on function public.central_aviso_criar(text, text, text, text, jsonb) to anon, authenticated;
+
+-- Avisos pendentes, do mais novo para o mais antigo
+create or replace function public.central_avisos_listar(chave text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform painel_checar(chave);
+  return coalesce((
+    select jsonb_agg(jsonb_build_object('id', x.id, 'os_id', x.os_id, 'status', x.status, 'criado', x.criado) || x.dados order by x.criado desc)
+    from (select * from central_avisos where estado = 'pendente' order by criado desc limit 30) x
+  ), '[]'::jsonb);
+end;
+$$;
+revoke all on function public.central_avisos_listar(text) from public;
+grant execute on function public.central_avisos_listar(text) to anon, authenticated;
+
+-- Muda o estado de um aviso só se ele estiver no estado esperado (evita enviar duas vezes).
+-- Devolve o aviso, ou null se não estava no estado esperado.
+create or replace function public.central_aviso_marcar(chave text, p_id text, p_de text, p_para text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v jsonb;
+begin
+  perform painel_checar(chave);
+  if p_para not in ('pendente', 'enviado', 'descartado') then
+    raise exception 'estado inválido';
+  end if;
+  update central_avisos set estado = p_para, atualizado = now()
+  where id = p_id and estado = p_de
+  returning jsonb_build_object('id', id, 'os_id', os_id, 'status', status) || dados into v;
+  return v;
+end;
+$$;
+revoke all on function public.central_aviso_marcar(text, text, text, text) from public;
+grant execute on function public.central_aviso_marcar(text, text, text, text) to anon, authenticated;

@@ -41,9 +41,8 @@ Ele **não** mexe nas configurações do sistema de OS nem da página do site.
 | `WHATSAPP_PHONE_ID` | O "Phone Number ID" do número que envia (developers.facebook.com › seu app › WhatsApp) |
 | `WHATSAPP_MODELO` | Nome do modelo aprovado (Utilidade, com `{{1}}` no meio do texto), ex.: `aviso_equipe`. Sem ele, a mensagem vai como texto livre e só chega se a pessoa mandou mensagem para o número nas últimas 24 h |
 | `WHATSAPP_IDIOMA` | **Opcional.** Idioma do modelo (padrão `pt_BR`) |
-| `CENTRAL_STATUS_PRONTO` | **Opcional.** Nome do status de pronto no sistema de OS, para o aviso automático ao cliente (padrão `pronto`; vários separados por vírgula) |
-| `CENTRAL_MSG_OS_PRONTA` | **Opcional.** Texto do aviso de pronto, com `{nome}`, `{aparelho}`, `{numero}` e `{valor}` (`\n` = nova linha) |
-| `CENTRAL_AVISO_PRONTA` | **Opcional.** `0` desliga o aviso automático de OS pronta |
+| `CENTRAL_MSG_OS_PRONTA` | **Opcional.** Texto do aviso de OS concluída/pronta, com `{nome}`, `{aparelho}`, `{numero}` e `{valor}` (`\n` = nova linha) |
+| `CENTRAL_AVISO_STATUS` | **Opcional.** `0` desliga os avisos de mudança de status de OS |
 | `CENTRAL_EQUIPE` | **Equipe no WhatsApp.** `Nome:número com DDD`, várias pessoas separadas por vírgula (ex.: `Nizael:5548999999999`). Fica aqui e não no código porque o repositório é público |
 
 As variáveis de cada sistema são independentes: com só as do site, ele já funciona para o
@@ -56,14 +55,18 @@ A Central guarda as 6 últimas conversas. Para elas serem as mesmas em todos os 
 CRM): **SQL Editor › New query › cole tudo › Run**. Usa a mesma `RB_PAINEL_CHAVE` do CRM. Sem
 isso, cada aparelho guarda as suas.
 
-## Aviso automático de OS pronta
+## Avisos de mudança de status de OS
 
-Quando uma OS fica pronta, o cliente recebe pelo WhatsApp da loja (precisa do envio automático ligado,
-`ZAPI_OMNI_KEY`). Funciona de dois jeitos, e cada OS é avisada no máximo uma vez por dia:
+Toda vez que uma OS muda de status, a Central monta a mensagem para o cliente (em análise, aguardando
+peça, em reparo, concluído…) e deixa esperando a sua confirmação: o cartão **📣 Avisar cliente** com
+os botões **Enviar** e **Descartar**. O cliente só recebe quando você toca em Enviar (pelo WhatsApp da
+loja, com a `ZAPI_OMNI_KEY`; sem ela, abre o WhatsApp com a mensagem pronta).
 
-- **Pela Central:** ao mudar o status para pronto com "Confirmar".
-- **Pelo sistema de OS:** quando alguém marca pronto lá, o sistema chama `POST /api/os-pronta` da Central.
-  Para isso, rode o prompt de [`docs/PROMPT-OS-PRONTA.md`](docs/PROMPT-OS-PRONTA.md) no Claude Code do sistema de OS.
+- **Mudança pela Central:** o cartão aparece logo depois do "Confirmar" da mudança de status.
+- **Mudança no sistema de OS:** o sistema chama `POST /api/os-status` da Central e o aviso aparece na
+  faixa **📣 avisos de OS para confirmar**. Para isso, rode o prompt de
+  [`docs/PROMPT-OS-STATUS.md`](docs/PROMPT-OS-STATUS.md) no Claude Code do sistema de OS.
+- Precisa do SQL (`supabase/central_conversas.sql`) rodado no Supabase do site.
 
 ## Ligar o sistema de OS
 

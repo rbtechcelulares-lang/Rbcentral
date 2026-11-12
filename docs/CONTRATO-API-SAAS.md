@@ -53,10 +53,11 @@ Toda chamada vem com o cabeçalho `Authorization: Bearer <SAAS_API_TOKEN>`.
 | GET | `/pedidos-pecas` | `?status=` | `{ "pedidos": [{ "id", "fornecedor", "peca", "os_numero", "quantidade", "valor", "status", "previsao", "criado_em" }] }` |
 | GET | `/relatorio` | `?dia=AAAA-MM-DD` (Brasília) | `{ "dia", "os_abertas", "os_criadas_no_dia", "os_concluidas_no_dia", "faturamento_dia", "recebido_dia", "ticket_medio", "pedidos_pecas_pendentes", "metas": [...] }` |
 
-**Aviso de OS pronta (sistema → Central):** quando uma OS da loja `CENTRAL_LOJA` **muda** para o
-status de pronta, o sistema faz `POST {CENTRAL_URL}/api/os-pronta` com `Authorization: Bearer
+**Aviso de mudança de status (sistema → Central):** quando o status de uma OS da loja
+`CENTRAL_LOJA` **muda**, o sistema faz `POST {CENTRAL_URL}/api/os-status` com `Authorization: Bearer
 <CENTRAL_API_TOKEN>` (a mesma chave) e corpo `{ "os_id": "<id da OS>" }`. A Central lê a OS de novo
-por `GET /os/:id` e responde `{ "enviado": true, "para", "mensagem" }` ou `{ "enviado": false, "motivo" }`.
+por `GET /os/:id`, monta o aviso para o dono confirmar e responde `{ "pendente": true, "aviso" }` ou
+`{ "pendente": false, "motivo" }`.
 
 **OS** = `{ "id", "loja", "numero", "cliente": {"nome", "whatsapp"}, "aparelho": {"marca", "modelo"}, "defeito", "relato", "status", "valor", "pago", "criado_em", "atualizado_em" }`
 
