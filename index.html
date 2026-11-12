@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/style.css?v=6">
+  <link rel="stylesheet" href="assets/style.css?v=7">
 </head>
 <body>
   <!-- Login -->
@@ -30,10 +30,20 @@
       <div class="marca">RB <b>Central</b></div>
       <div class="conexoes" id="conexoes"></div>
       <div class="topo-acoes">
+        <button class="btn-mini" id="hist-btn" title="Últimas conversas" aria-label="Últimas conversas" aria-expanded="false" aria-controls="hist"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1M3.5 4v4h4M12 7.5V12l3 2"/></svg></span><span class="tx">Conversas</span></button>
         <button class="btn-mini" id="limpar" title="Nova conversa" aria-label="Nova conversa"><span class="ic">＋</span><span class="tx">Nova conversa</span></button>
         <button class="btn-mini" id="sair" title="Sair">Sair</button>
       </div>
     </header>
+    <div class="hist" id="hist" hidden>
+      <div class="hist-fundo" data-fechar></div>
+      <div class="hist-painel" role="dialog" aria-label="Últimas conversas">
+        <div class="hist-topo"><b>Últimas conversas</b><button type="button" class="btn-mini" data-fechar aria-label="Fechar">✕</button></div>
+        <button type="button" class="hist-nova" id="hist-nova">＋ Nova conversa</button>
+        <ul class="hist-lista" id="hist-lista"></ul>
+        <p class="hist-nota">Guardo as 6 últimas conversas neste aparelho. Quando começa a 7ª, a mais antiga sai.</p>
+      </div>
+    </div>
     <div class="cerebro" id="cerebro">
       <button type="button" class="cb-recolher" id="cb-recolher" aria-expanded="true" title="Recolher o cérebro">▴</button>
       <div class="cerebro-desenho" id="cerebro-desenho"></div>
@@ -50,6 +60,6 @@
   </section>
 
   <script src="assets/cerebro.js?v=4"></script>
-  <script src="assets/app.js?v=6"></script>
+  <script src="assets/app.js?v=7"></script>
 </body>
 </html>

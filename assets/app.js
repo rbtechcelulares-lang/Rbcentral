@@ -61,13 +61,62 @@
   }
 
   const CHAVE_TOKEN = 'rbcentral_token';
-  const CHAVE_CONVERSA = 'rbcentral_conversa';
+  const CHAVE_CONVERSA = 'rbcentral_conversa'; // formato antigo: uma conversa só
+  const CHAVE_CONVERSAS = 'rbcentral_conversas';
+  const CHAVE_ATUAL = 'rbcentral_conversa_atual';
+  const MAX_CONVERSAS = 6;
+  const MAX_ITENS = 80;
   let token = '';
   try { token = localStorage.getItem(CHAVE_TOKEN) || ''; } catch (e) { /* sem storage */ }
-  // itens: { role: 'user'|'assistant', content } ou { tipo: 'acao', token, titulo, linhas, estado } ou { tipo: 'nota', content }
+
+  // conversas: [{ id, criada, atualizada, itens }], da mais recente para a mais antiga (as 6 últimas, neste aparelho)
+  // itens: { role: 'user'|'assistant', content } ou { tipo: 'acao', token, titulo, linhas, estado, em } ou { tipo: 'nota', content }
+  const novoId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const temMensagem = (c) => c.itens.some((i) => i.role === 'user');
+  let conversas = [];
+  try { conversas = JSON.parse(localStorage.getItem(CHAVE_CONVERSAS) || '[]'); } catch (e) { conversas = []; }
+  conversas = (Array.isArray(conversas) ? conversas : []).filter((c) => c && c.id && Array.isArray(c.itens));
+  try { // a conversa do formato antigo vira a primeira do histórico
+    const antiga = JSON.parse(localStorage.getItem(CHAVE_CONVERSA) || '[]');
+    if (Array.isArray(antiga) && antiga.some((i) => i && i.role === 'user') && !conversas.length) conversas.push({ id: novoId(), criada: Date.now(), atualizada: Date.now(), itens: antiga });
+    localStorage.removeItem(CHAVE_CONVERSA);
+  } catch (e) { /* ignora */ }
+
+  let atual = null; // conversa aberta (null = conversa nova, ainda sem mensagens)
   let itens = [];
-  try { itens = JSON.parse(localStorage.getItem(CHAVE_CONVERSA) || '[]'); } catch (e) { itens = []; }
-  const guardar = () => { try { localStorage.setItem(CHAVE_CONVERSA, JSON.stringify(itens.slice(-80))); } catch (e) { /* ignora */ } };
+  function abrirConversa(c) {
+    atual = c || null;
+    itens = atual ? atual.itens : [];
+    try { localStorage.setItem(CHAVE_ATUAL, atual ? atual.id : ''); } catch (e) { /* ignora */ }
+  }
+  {
+    let id = null;
+    try { id = localStorage.getItem(CHAVE_ATUAL); } catch (e) { /* ignora */ }
+    abrirConversa(id === '' ? null : (conversas.find((c) => c.id === id) || conversas[0]));
+  }
+  // a conversa nova entra no histórico na primeira mensagem
+  function conversaAtual() {
+    if (!atual) { atual = { id: novoId(), criada: Date.now(), atualizada: Date.now(), itens }; conversas.unshift(atual); abrirConversa(atual); }
+    return atual;
+  }
+  function guardar(conv) {
+    conv = conv || (itens.length ? conversaAtual() : null);
+    if (conv) {
+      conv.atualizada = Date.now();
+      if (conv.itens.length > MAX_ITENS) conv.itens.splice(0, conv.itens.length - MAX_ITENS);
+    }
+    conversas.sort((a, b) => b.atualizada - a.atualizada);
+    // guarda só as 6 mais recentes que têm mensagem do dono; a mais antiga sai quando entra a 7ª
+    let salvar = conversas.filter(temMensagem).slice(0, MAX_CONVERSAS);
+    conversas = conversas.filter((c) => salvar.includes(c) || c === atual);
+    while (true) {
+      try { localStorage.setItem(CHAVE_CONVERSAS, JSON.stringify(salvar)); break; } catch (e) {
+        if (salvar.length <= 1 || !/quota/i.test(e.name + ' ' + e.message)) break; // memória do navegador cheia: tira a mais antiga
+        salvar = salvar.slice(0, -1);
+      }
+    }
+    try { localStorage.setItem(CHAVE_ATUAL, atual ? atual.id : ''); } catch (e) { /* ignora */ }
+  }
 
   // cérebro: cada neurônio é uma aba de um sistema; tocar nele pede aquilo para a IA
   let cerebro = null;
@@ -127,8 +176,9 @@
     ajustarCerebro();
     c.innerHTML = (itens.length ? '' : '<div class="m ia">Olá! Sou o <b>RB Central</b>. Posso mudar preços, tirar aparelhos da vitrine, listar clientes do CRM, criar e atualizar OS, registrar pagamentos, avisar clientes, mexer nas metas, ver pedidos de peças e fazer o relatório do dia. Tudo que altera algo eu peço para você confirmar antes. 😉</div>') +
       itens.map((it, k) => {
+        if (it.tipo === 'acao' && !it.estado && it.em && Date.now() - it.em > 15 * 60 * 1000) { it.estado = 'expirada'; it.resultado = 'Expirou (vale 15 minutos). Se ainda quiser, peça de novo.'; }
         if (it.tipo === 'acao') {
-          return '<div class="acao ' + (it.estado || '') + '" data-k="' + k + '"><h4>' + (it.estado === 'feita' ? '✅ ' : it.estado === 'cancelada' ? '✖ ' : it.estado === 'falhou' ? '⚠️ ' : '⏳ ') + esc(it.titulo) + '</h4>' +
+          return '<div class="acao ' + (it.estado || '') + '" data-k="' + k + '"><h4>' + (it.estado === 'feita' ? '✅ ' : it.estado === 'cancelada' ? '✖ ' : it.estado === 'falhou' ? '⚠️ ' : it.estado === 'expirada' ? '⌛ ' : '⏳ ') + esc(it.titulo) + '</h4>' +
             '<ul>' + (it.linhas || []).map((l) => '<li>' + esc(l) + '</li>').join('') + '</ul>' +
             (it.resultado ? '<div class="muted">' + fmt(it.resultado) + '</div>' : '') +
             (!it.estado ? '<div class="botoes"><button class="btn ok" data-ok="' + k + '">Confirmar</button><button class="btn nao" data-nao="' + k + '">Cancelar</button></div>' : '') + '</div>';
@@ -145,10 +195,15 @@
     else c.scrollTop = c.scrollHeight;
   }
 
-  function nota(t) { itens.push({ tipo: 'nota', content: t }); guardar(); desenhar(); }
+  function nota(t, conv) {
+    conv = conv || conversaAtual();
+    conv.itens.push({ tipo: 'nota', content: t });
+    guardar(conv);
+    if (conv === atual) desenhar();
+  }
 
   // o que vai para a IA: as mensagens e as notas (ações confirmadas/canceladas) como contexto
-  const historico = () => itens.filter((it) => it.role || it.tipo === 'nota')
+  const historico = (lista) => lista.filter((it) => it.role || it.tipo === 'nota')
     .map((it) => (it.role ? { role: it.role, content: it.content } : { role: 'user', content: '[registro do sistema] ' + it.content }));
 
   // a caixa de mensagem cresce conforme o texto (até um limite) e volta ao normal depois de enviar
@@ -164,37 +219,42 @@
     if (!texto || ocupado) return;
     ocupado = true; $('#msg').value = ''; crescer();
     let novaResposta = null;
-    itens.push({ role: 'user', content: texto }); guardar(); desenhar();
+    itens.push({ role: 'user', content: texto });
+    const conv = conversaAtual();
+    const lista = conv.itens;
+    guardar(conv); desenhar();
     $('#conversa').insertAdjacentHTML('beforeend', '<div class="digitando">RB Central está trabalhando…</div>');
     if (cerebro) cerebro.pensando(true);
     $('#conversa').scrollTop = $('#conversa').scrollHeight;
     try {
-      const d = await chamar('chat', { mensagens: historico() });
+      const d = await chamar('chat', { mensagens: historico(lista) });
       if (cerebro) cerebro.acender(d.usadas);
-      itens.push({ role: 'assistant', content: d.resposta });
-      novaResposta = itens.length - 1;
-      (d.acoes || []).forEach((a) => itens.push({ tipo: 'acao', token: a.token, titulo: a.titulo, linhas: a.linhas }));
+      novaResposta = { role: 'assistant', content: d.resposta };
+      lista.push(novaResposta);
+      (d.acoes || []).forEach((a) => lista.push({ tipo: 'acao', token: a.token, titulo: a.titulo, linhas: a.linhas, em: Date.now() }));
     } catch (e) {
-      itens.push({ tipo: 'nota', content: '⚠️ ' + e.message });
+      lista.push({ tipo: 'nota', content: '⚠️ ' + e.message });
     }
-    ocupado = false; guardar(); desenhar(novaResposta);
+    ocupado = false; guardar(conv);
+    if (conv === atual) desenhar(novaResposta ? lista.indexOf(novaResposta) : undefined);
     if (cerebro) cerebro.pensando(false);
   }
 
   async function confirmar(k) {
     const it = itens[k];
-    if (!it || it.estado) return;
+    const conv = atual;
+    if (!it || it.estado || !conv) return;
     it.estado = 'enviando'; desenhar();
     try {
       const d = await chamar('confirmar', { acao: it.token });
       it.estado = 'feita';
       const r = d.resultado || {};
       it.resultado = Array.isArray(r.feito) ? r.feito.join('\n') : r.link_whatsapp ? (r.enviado ? 'Mensagem enviada.' : 'Abra para enviar: ' + r.link_whatsapp) : 'Feito.';
-      nota('Confirmado e executado: ' + it.titulo);
+      nota('Confirmado e executado: ' + it.titulo, conv);
       if (r.link_whatsapp && !r.enviado) window.open(r.link_whatsapp, '_blank', 'noopener');
     } catch (e) {
       it.estado = 'falhou'; it.resultado = e.message;
-      nota('Falhou: ' + it.titulo + ' (' + e.message + ')');
+      nota('Falhou: ' + it.titulo + ' (' + e.message + ')', conv);
     }
   }
 
@@ -284,12 +344,65 @@
   });
   $('#msg').addEventListener('input', crescer);
   $('#sair').addEventListener('click', sair);
-  $('#limpar').addEventListener('click', () => {
-    if (!confirm('Começar uma conversa nova?')) return;
-    itens = []; prefCerebro = '';
+  function novaConversa() {
+    abrirConversa(null); prefCerebro = '';
     try { localStorage.removeItem(CHAVE_CEREBRO); } catch (e) { /* ignora */ }
-    guardar(); desenhar();
+    fecharHistorico(); desenhar(); $('#msg').focus();
+  }
+  $('#limpar').addEventListener('click', novaConversa);
+
+  // ---------- Histórico: as 6 últimas conversas ----------
+  const quando = (t) => {
+    const d = new Date(t), hoje = new Date();
+    const hora = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const dia = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+    const dif = Math.round((dia(hoje) - dia(d)) / 86400000);
+    return dif === 0 ? 'Hoje ' + hora : dif === 1 ? 'Ontem ' + hora : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' + hora;
+  };
+  const tituloConversa = (c) => {
+    const p = c.itens.find((i) => i.role === 'user');
+    return p ? p.content.split('\n')[0].trim().slice(0, 80) : 'Conversa';
+  };
+  function desenharHistorico() {
+    const lista = conversas.filter(temMensagem).slice(0, MAX_CONVERSAS);
+    $('#hist-lista').innerHTML = lista.length ? lista.map((c) => {
+      const n = c.itens.filter((i) => i.role).length;
+      return '<li class="hist-item' + (c === atual ? ' atual' : '') + '">' +
+        '<button type="button" class="hist-abrir" data-abrir="' + esc(c.id) + '"><span class="hist-tit">' + esc(tituloConversa(c)) + '</span>' +
+        '<span class="hist-sub">' + (c === atual ? 'Aberta agora · ' : '') + quando(c.atualizada) + ' · ' + n + (n === 1 ? ' mensagem' : ' mensagens') + '</span></button>' +
+        '<button type="button" class="hist-apagar" data-apagar="' + esc(c.id) + '" aria-label="Apagar esta conversa" title="Apagar">' +
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button></li>';
+    }).join('') : '<li class="hist-vazio">Nenhuma conversa guardada ainda.</li>';
+  }
+  function abrirHistorico() {
+    desenharHistorico();
+    $('#hist').hidden = false;
+    $('#hist-btn').setAttribute('aria-expanded', 'true');
+  }
+  function fecharHistorico() {
+    $('#hist').hidden = true;
+    $('#hist-btn').setAttribute('aria-expanded', 'false');
+  }
+  $('#hist-btn').addEventListener('click', () => ($('#hist').hidden ? abrirHistorico() : fecharHistorico()));
+  $('#hist').addEventListener('click', (e) => {
+    if (e.target.closest('[data-fechar]')) return fecharHistorico();
+    if (e.target.closest('#hist-nova')) return novaConversa();
+    const ab = e.target.closest('[data-abrir]');
+    if (ab) {
+      const c = conversas.find((x) => x.id === ab.dataset.abrir);
+      if (c) { abrirConversa(c); prefCerebro = ''; fecharHistorico(); desenhar(); }
+      return;
+    }
+    const ap = e.target.closest('[data-apagar]');
+    if (ap) {
+      const c = conversas.find((x) => x.id === ap.dataset.apagar);
+      if (!c || !confirm('Apagar a conversa "' + tituloConversa(c).slice(0, 40) + '"?')) return;
+      conversas = conversas.filter((x) => x !== c);
+      if (c === atual) { abrirConversa(null); desenhar(); }
+      guardar(); desenharHistorico();
+    }
   });
+  addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#hist').hidden) fecharHistorico(); });
 
   if (token) entrar(); else $('#login').hidden = false;
 })();
