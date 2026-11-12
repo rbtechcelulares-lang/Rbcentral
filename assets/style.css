@@ -204,3 +204,4 @@ body { background: var(--fundo); color: var(--texto); font: 15px/1.5 Manrope, sy
 .acao.zap.aberta { opacity: .85; }
 .acao li { white-space: pre-wrap; }
 .acao .btn-zap { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; background: #25d366; color: #0b1f12; }
+.zap-dica { margin-top: 8px; font-size: 12.5px; }

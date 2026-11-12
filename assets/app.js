@@ -82,6 +82,7 @@
     localStorage.removeItem(CHAVE_CONVERSA);
   } catch (e) { /* ignora */ }
 
+  let zapAutomatico = false; // envio de WhatsApp com um toque (Z-API ou Meta) ligado no servidor
   let atual = null; // conversa aberta (null = conversa nova, ainda sem mensagens)
   let itens = [];
   function abrirConversa(c) {
@@ -257,7 +258,8 @@
       const s = await chamar('status');
       vozNuvem = !!s.voz;
       if (cerebro) cerebro.status(s);
-      $('#conexoes').innerHTML = [['IA', s.ia], ['Site', s.site], ['CRM', s.crm], ['OS', s.sistema_os]]
+      zapAutomatico = !!s.whatsapp;
+      $('#conexoes').innerHTML = [['IA', s.ia], ['Site', s.site], ['CRM', s.crm], ['OS', s.sistema_os], ['Zap', s.whatsapp]]
         .map(([n, on]) => '<span class="con' + (on ? ' on' : '') + '">' + (on ? '● ' : '○ ') + n + '</span>').join('');
     } catch (e) { /* mostrado ao usar */ }
     sincronizar(true);
@@ -282,7 +284,8 @@
           return '<div class="acao zap' + (it.estado ? ' ' + it.estado : '') + '" data-k="' + k + '"><h4>' + (it.estado === 'aberta' ? '✅ ' : '📲 ') + esc(it.titulo) + '</h4>' +
             '<div class="zap-msg">' + fmt((it.linhas || []).join('\n')) + '</div>' +
             (seguro ? '<div class="botoes"><a class="btn ok btn-zap" href="' + esc(seguro) + '" target="_blank" rel="noopener" data-zap="' + k + '">' + (it.estado === 'aberta' ? 'Abrir de novo no WhatsApp' : 'Enviar no WhatsApp') + '</a></div>' : '') +
-            (it.estado === 'aberta' ? '<div class="muted">Aberto no WhatsApp. Confira e toque em enviar lá.</div>' : '') + '</div>';
+            (it.estado === 'aberta' ? '<div class="muted">Aberto no WhatsApp. Confira e toque em enviar lá.</div>' : '') +
+            (!zapAutomatico ? '<div class="muted zap-dica">Para mandar com um toque, sem abrir o WhatsApp: ligue a Z-API (variável ZAPI_OMNI_KEY na Vercel e um novo deploy). O selo Zap no topo fica verde.</div>' : '') + '</div>';
         }
         if (it.tipo === 'nota') return '<div class="m nota">' + fmt(it.content) + '</div>';
         if (it.role === 'user') return '<div class="m eu">' + fmt(it.content) + '</div>';
