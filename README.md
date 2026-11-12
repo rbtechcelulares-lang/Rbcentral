@@ -32,6 +32,7 @@ Ele **não** mexe nas configurações do sistema de OS nem da página do site.
 | `RB_PAINEL_CHAVE` | A chave do painel (a mesma das abas Clientes e Cliques do admin do site) |
 | `SAAS_API_URL` | Endereço base da API do sistema de OS (ex.: `https://rbtechcelulares.reparosimples.com/api/central`) |
 | `SAAS_API_TOKEN` | O mesmo valor de `CENTRAL_API_TOKEN` configurado no sistema de OS |
+| `SAAS_LOJA` | A sua loja no sistema de OS: `rbtechcelulares` (é o padrão se ficar vazio) |
 
 As variáveis de cada sistema são independentes: com só as do site, ele já funciona para o
 site. O sistema de OS entra quando a API dele estiver pronta.
@@ -45,6 +46,9 @@ Para isso, abra o Claude Code no repositório do sistema e use o prompt de
 
 ## Segurança
 
+- **Só a sua loja:** o sistema de OS é de vários lojistas, mas a chave da API só abre a sua loja
+  (garantido no servidor do sistema). Como segunda trava, o Central recusa qualquer resposta que
+  não seja da loja `SAAS_LOJA`.
 - **Acesso:** só com `CENTRAL_SENHA`. O login vale 12 horas, e são 5 tentativas erradas por
   IP antes de esperar 10 minutos.
 - **Confirmações:** as alterações são assinadas pelo servidor, valem 15 minutos e não rodam duas

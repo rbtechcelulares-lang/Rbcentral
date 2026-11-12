@@ -3,6 +3,30 @@
 O RB Central chama estes endereços do sistema de OS. Todos ficam sob um endereço base
 (ex.: `https://rbtechcelulares.reparosimples.com/api/central`) e usam JSON.
 
+## Só a loja rbtechcelulares (o sistema tem vários lojistas)
+
+Esta API existe só para a loja **rbtechcelulares**. Isso é garantido no servidor do sistema, não
+por quem chama:
+
+1. **A chave é presa a uma loja.** O token (`CENTRAL_API_TOKEN`) é ligado à loja `rbtechcelulares`
+   no servidor (variável `CENTRAL_LOJA` = `rbtechcelulares`, ou o id interno dela). A loja **nunca**
+   vem da URL, do corpo ou de um cabeçalho do pedido. Se aparecer um parâmetro de loja no pedido,
+   ignore.
+2. **Toda consulta filtra pela loja.** Listas, detalhes, relatórios, metas e pedidos de peças sempre
+   têm `WHERE loja = CENTRAL_LOJA` (ou o equivalente com RLS). Nunca devolva dados agregados de
+   várias lojas.
+3. **Toda alteração confere o dono.** Antes de mudar status, registrar pagamento, avisar cliente
+   ou mudar meta, confirme que o registro é da loja `CENTRAL_LOJA`. Se for de outra loja, ou se
+   não existir, responda **404** `{"erro": "não encontrado"}`, sem dizer que existe em outra loja.
+   O `UPDATE` também leva o filtro de loja, e não só o `SELECT` antes.
+4. **Criar OS** grava sempre com a loja `CENTRAL_LOJA`.
+5. **Toda resposta de sucesso** tem `"loja": "rbtechcelulares"` no nível de cima. Cada OS, meta e
+   pedido devolvido também tem `"loja"`. O RB Central recusa qualquer resposta sem isso ou com
+   outra loja.
+6. **Se o banco usa a chave de serviço (que ignora o RLS):** os filtros acima são obrigatórios em
+   todas as consultas, sem exceção. Prefira centralizar numa função única de acesso que já aplica a
+   loja.
+
 ## Autenticação
 
 Toda chamada vem com o cabeçalho `Authorization: Bearer <SAAS_API_TOKEN>`.
@@ -29,9 +53,14 @@ Toda chamada vem com o cabeçalho `Authorization: Bearer <SAAS_API_TOKEN>`.
 | GET | `/pedidos-pecas` | `?status=` | `{ "pedidos": [{ "id", "fornecedor", "peca", "os_numero", "quantidade", "valor", "status", "previsao", "criado_em" }] }` |
 | GET | `/relatorio` | `?dia=AAAA-MM-DD` (Brasília) | `{ "dia", "os_abertas", "os_criadas_no_dia", "os_concluidas_no_dia", "faturamento_dia", "recebido_dia", "ticket_medio", "pedidos_pecas_pendentes", "metas": [...] }` |
 
-**OS** = `{ "id", "numero", "cliente": {"nome", "whatsapp"}, "aparelho": {"marca", "modelo"}, "defeito", "relato", "status", "valor", "pago", "criado_em", "atualizado_em" }`
+**OS** = `{ "id", "loja", "numero", "cliente": {"nome", "whatsapp"}, "aparelho": {"marca", "modelo"}, "defeito", "relato", "status", "valor", "pago", "criado_em", "atualizado_em" }`
+
+Exemplo: `GET /os?status=Pronto` → `{ "loja": "rbtechcelulares", "os": [{ "id": "…", "loja": "rbtechcelulares", "numero": 42, … }] }`
+
+Os números de OS (`numero`) podem se repetir entre lojas. Ao buscar por número, procure só
+dentro da loja `CENTRAL_LOJA`.
 
 ## Fora do contrato (não expor)
 
-Configurações do sistema e da página pública, usuários e permissões, apagar OS, dados de
-outras lojas, custos internos e chaves.
+Configurações do sistema e da página pública, usuários e permissões, apagar OS, **qualquer dado
+de outras lojas**, custos internos e chaves.
