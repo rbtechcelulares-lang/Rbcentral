@@ -3,12 +3,26 @@
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fmt = (t) => esc(t).replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>').replace(/\*([^*\n]+)\*/g, '<b>$1</b>')
     .replace(/(https:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
-  // respostas da IA em blocos: tabela, lista, título e parágrafo
+  // respostas da IA organizadas em blocos: resumo, títulos de grupo, itens (campos separados por " · "), tabela e pergunta final
+  function itemHtml(txt) {
+    const [principal, ...extra] = txt.split(/\s+—\s+/);
+    const partes = principal.split(/\s+·\s+/);
+    let h = partes.length > 1
+      ? '<span class="it-id">' + fmt(partes[0]) + '</span>' + partes.slice(1).map((p) => '<span class="it-sep">·</span>' + (p.length <= 22 ? '<span class="it-c">' + fmt(p) + '</span>' : fmt(p))).join('')
+      : fmt(principal);
+    if (extra.length) h += '<span class="it-obs">' + fmt(extra.join(' — ')) + '</span>';
+    return h;
+  }
   function md(t) {
     const linhas = String(t || '').replace(/\r/g, '').split('\n');
-    const html = [];
+    const blocos = []; // { t: 'p' | 'h' | 'lista' | 'tab', h, texto }
     let lista = null;
-    const fecharLista = () => { if (lista) { html.push('<ul>' + lista.join('') + '</ul>'); lista = null; } };
+    const fecharLista = () => {
+      if (!lista) return;
+      const tag = lista.num ? 'ol' : 'ul';
+      blocos.push({ t: 'lista', h: '<' + tag + ' class="md-lista">' + lista.itens.join('') + '</' + tag + '>' });
+      lista = null;
+    };
     for (let i = 0; i < linhas.length; i++) {
       const l = linhas[i].trim();
       if (/^\|.*\|$/.test(l)) { // tabela markdown
@@ -20,19 +34,30 @@
         const corpo = rows.filter((r) => !/^\|[\s:|-]+\|$/.test(r));
         if (!corpo.length) continue;
         const [cab, ...resto] = corpo;
-        html.push('<div class="tabela"><table><thead><tr>' + celulas(cab).map((c) => '<th>' + fmt(c) + '</th>').join('') + '</tr></thead><tbody>' +
-          resto.map((r) => '<tr>' + celulas(r).map((c) => '<td>' + fmt(c) + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>');
+        blocos.push({ t: 'tab', h: '<div class="tabela"><table><thead><tr>' + celulas(cab).map((c) => '<th>' + fmt(c) + '</th>').join('') + '</tr></thead><tbody>' +
+          resto.map((r) => '<tr>' + celulas(r).map((c) => '<td>' + fmt(c) + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>' });
         continue;
       }
-      const item = l.match(/^(?:[-•*]|\d+[.)])\s+(.*)$/);
-      if (item) { (lista = lista || []).push('<li>' + fmt(item[1]) + '</li>'); continue; }
+      const item = l.match(/^(?:([-•*])|(\d+)[.)])\s+(.*)$/);
+      if (item) {
+        const num = !!item[2];
+        if (lista && lista.num !== num) fecharLista();
+        lista = lista || { num, itens: [] };
+        lista.itens.push('<li>' + itemHtml(item[3]) + '</li>');
+        continue;
+      }
+      if (!l) continue; // linha em branco não fecha a lista: itens separados por espaço continuam no mesmo grupo
       fecharLista();
-      const tit = l.match(/^#{1,4}\s+(.*)$/);
-      if (tit) { html.push('<p class="md-h">' + fmt(tit[1]) + '</p>'); continue; }
-      if (l) html.push('<p>' + fmt(l) + '</p>');
+      // título: "## Prontas", "**Prontas (2)**" ou "*Prontas (2):*" sozinho na linha
+      const tit = l.match(/^#{1,4}\s+(.*)$/) || l.match(/^\*\*([^*]+)\*\*:?$/) || l.match(/^\*([^*]+)\*:?$/);
+      if (tit) { blocos.push({ t: 'h', h: '<p class="md-h">' + fmt(tit[1].replace(/:\s*$/, '')) + '</p>' }); continue; }
+      blocos.push({ t: 'p', texto: l, h: fmt(l) });
     }
     fecharLista();
-    return html.join('');
+    if (blocos.length > 1 && blocos[0].t === 'p') blocos[0].cls = 'md-resumo';
+    const ult = blocos[blocos.length - 1];
+    if (blocos.length > 1 && ult.t === 'p' && /\?\s*$/.test(ult.texto)) ult.cls = 'md-pergunta';
+    return blocos.map((b) => (b.t === 'p' ? '<p' + (b.cls ? ' class="' + b.cls + '"' : '') + '>' + b.h + '</p>' : b.h)).join('');
   }
 
   const CHAVE_TOKEN = 'rbcentral_token';
@@ -126,11 +151,18 @@
   const historico = () => itens.filter((it) => it.role || it.tipo === 'nota')
     .map((it) => (it.role ? { role: it.role, content: it.content } : { role: 'user', content: '[registro do sistema] ' + it.content }));
 
+  // a caixa de mensagem cresce conforme o texto (até um limite) e volta ao normal depois de enviar
+  function crescer() {
+    const m = $('#msg');
+    m.style.height = 'auto';
+    m.style.height = Math.min(m.scrollHeight + 3, 160) + 'px';
+  }
+
   let ocupado = false;
   async function enviar(texto) {
     texto = String(texto || '').trim();
     if (!texto || ocupado) return;
-    ocupado = true; $('#msg').value = '';
+    ocupado = true; $('#msg').value = ''; crescer();
     let novaResposta = null;
     itens.push({ role: 'user', content: texto }); guardar(); desenhar();
     $('#conversa').insertAdjacentHTML('beforeend', '<div class="digitando">RB Central está trabalhando…</div>');
@@ -227,6 +259,7 @@
           else parcial += e.results[i][0].transcript;
         }
         $('#msg').value = [textoBase, (finalVoz + parcial).trim()].filter(Boolean).join(' ');
+        crescer();
         if (cerebro) cerebro.falando();
       };
       rec.onerror = (e) => {
@@ -245,7 +278,11 @@
       try { rec.start(); } catch (e) { marcar(false); nota('🎤 Não consegui ligar o microfone.'); }
     });
   }
-  $('#msg').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (ditando) modoDitado(false); enviar($('#msg').value); } });
+  // Enter quebra a linha (não envia). No computador, Ctrl+Enter ou ⌘+Enter envia.
+  $('#msg').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); if (ditando) modoDitado(false); pararVoz(false); enviar($('#msg').value); }
+  });
+  $('#msg').addEventListener('input', crescer);
   $('#sair').addEventListener('click', sair);
   $('#limpar').addEventListener('click', () => {
     if (!confirm('Começar uma conversa nova?')) return;

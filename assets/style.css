@@ -141,3 +141,23 @@ body { background: var(--fundo); color: var(--texto); font: 15px/1.5 Manrope, sy
   .enviar { padding: 8px 12px calc(10px + env(safe-area-inset-bottom)); gap: 6px; }
   .btn-mic { width: 44px; }
 }
+
+/* ---------- Respostas organizadas ---------- */
+.m.ia .md-resumo { font-weight: 700; font-size: 15.5px; margin-bottom: 8px; }
+.m.ia .md-h { color: var(--ouro); font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; margin: 12px 0 6px; }
+.m.ia .md-h:first-child { margin-top: 2px; }
+.m.ia .md-h b { color: inherit; }
+.m.ia .md-lista { list-style: none; margin: 0 0 8px; padding: 0; border: 1px solid var(--borda); border-radius: 12px; overflow: hidden; background: rgba(255,255,255,.02); counter-reset: passo; }
+.m.ia .md-lista li { margin: 0; padding: 8px 11px; border-top: 1px solid var(--borda); line-height: 1.4; }
+.m.ia .md-lista li:first-child { border-top: 0; }
+.m.ia ol.md-lista li { counter-increment: passo; padding-left: 36px; position: relative; }
+.m.ia ol.md-lista li::before { content: counter(passo); position: absolute; left: 10px; top: 8px; width: 18px; height: 18px; border-radius: 50%; background: var(--ouro); color: #111; font-size: 11px; font-weight: 800; display: grid; place-items: center; }
+.it-id { color: var(--ouro); font-weight: 800; }
+.it-sep { color: var(--apagado); margin: 0 6px; opacity: .7; }
+.it-obs { display: block; color: var(--apagado); font-size: 13px; margin-top: 2px; }
+.m.ia .md-pergunta { margin-top: 10px; padding-top: 9px; border-top: 1px dashed var(--borda); color: #fbe38e; font-weight: 600; }
+/* caixa de mensagem cresce com o texto; botões ficam alinhados embaixo */
+.enviar { align-items: flex-end; }
+.enviar textarea { height: 51px; max-height: 160px; line-height: 1.5; overflow-y: auto; }
+.enviar .btn, .enviar .btn-mic { height: 51px; }
+.it-id, .it-c { white-space: nowrap; }
