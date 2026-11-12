@@ -6,6 +6,7 @@
 // Formato completo em docs/CONTRATO-API-SAAS.md. Resposta: { pendente: true, aviso } ou { pendente: false, motivo }
 const crypto = require('crypto');
 const avisos = require('../lib/avisos');
+const crm = require('../lib/crm-whatsapp');
 
 const igual = (a, b) => {
   const x = crypto.createHash('sha256').update(String(a)).digest();
@@ -20,7 +21,10 @@ module.exports = async (req, res) => {
   const recebida = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
   if (!chave || !recebida || !igual(recebida, chave)) return res.status(401).json({ erro: 'Chave inválida.' });
   try {
-    return res.status(200).json(await avisos.prepararEvento(req.body));
+    const corpo = req.body || {};
+    // venda com o WhatsApp do cliente: no funil do CRM ele vira "comprou" (confirma o que a IA leu na conversa)
+    if (corpo.tipo === 'venda' && corpo.cliente && corpo.cliente.whatsapp) await crm.marcarVenda(corpo.cliente.whatsapp).catch(() => false);
+    return res.status(200).json(await avisos.prepararEvento(corpo));
   } catch (e) {
     return res.status(502).json({ pendente: false, motivo: e.message });
   }

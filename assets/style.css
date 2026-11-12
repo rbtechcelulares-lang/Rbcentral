@@ -233,6 +233,11 @@ body { background: var(--fundo); color: var(--texto); font: 15px/1.5 Manrope, sy
 .crm-etapa.etapa-comprou, .crm-etapa.etapa-pos_venda { background: rgba(47,191,113,.15); color: var(--ok); }
 .crm-etapa.etapa-perdido { background: rgba(255,122,106,.12); color: var(--erro); }
 .crm-etapa.etapa-fora { background: #24211d; color: var(--apagado); }
+.crm-etapa.etapa-fechado { background: rgba(47,191,113,.12); color: #7fd8a5; }
+.crm-situacao { font-size: 13px; font-weight: 700; margin-top: 4px; color: var(--apagado); }
+.crm-situacao.sit-loja_sem_responder { color: var(--erro); }
+.crm-situacao.sit-cliente_sumiu { color: #ff9a4d; }
+.crm-situacao.sit-nao_buscou { color: var(--ouro); }
 .crm-item.crm-fora { opacity: .78; }
 .crm-aviso { color: var(--ouro); }
 .crm-sub { font-size: 12px; color: var(--apagado); }

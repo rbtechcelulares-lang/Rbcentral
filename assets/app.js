@@ -314,9 +314,19 @@
     $('#app').hidden = true; $('#login').hidden = false;
   }
 
+  // link vindo do Admin do site (botão "Follow-up pela Central"): ?pedir=... já escreve o pedido na caixa,
+  // e só vai quando o dono tocar em enviar
+  let pedidoInicial = '';
+  try {
+    const u = new URL(location.href);
+    pedidoInicial = String(u.searchParams.get('pedir') || '').slice(0, 1000);
+    if (pedidoInicial) { u.searchParams.delete('pedir'); history.replaceState(null, '', u.pathname + u.search + u.hash); }
+  } catch (e) { /* ignora */ }
+
   async function entrar() {
     $('#login').hidden = true; $('#app').hidden = false;
     desenhar();
+    if (pedidoInicial) { $('#msg').value = pedidoInicial; pedidoInicial = ''; crescer(); $('#msg').focus(); }
     try {
       const s = await chamar('status');
       vozNuvem = !!s.voz;
@@ -742,7 +752,8 @@
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#hist').hidden) fecharHistorico(); });
 
   // ---------- CRM do WhatsApp: clientes que conversaram com o WhatsApp da loja ----------
-  const ETAPA_NOME = { novo: 'Novo', em_atendimento: 'Em atendimento', orcamento: 'Orçamento', negociando: 'Negociando', comprou: 'Comprou', perdido: 'Perdido', pos_venda: 'Pós-venda' };
+  const ETAPA_NOME = { novo: 'Novo', em_atendimento: 'Em atendimento', orcamento: 'Orçamento', negociando: 'Negociando', fechado: 'Fechado', comprou: 'Comprou', perdido: 'Perdido', pos_venda: 'Pós-venda' };
+  const SITUACAO_NOME = { loja_sem_responder: '🔴 Loja sem responder', cliente_sumiu: '🟠 Cliente sumiu', nao_buscou: '🟡 Fechou e não buscou', fechado: '🤝 Fechou: falta buscar ou pagar' };
   // o CRM mostra só quem quer comprar iPhone; o resto fica na aba "Outros", sem ação
   const TIPO_NOME = { vende_para_loja: 'Vendendo p/ loja', reparo: 'Reparo', outro: 'Outro assunto' };
   const TIPO_ICONE = { vende_para_loja: '📦', reparo: '🔧', outro: '💬' };
@@ -764,7 +775,8 @@
       : '<span class="crm-etapa etapa-fora">' + esc(TIPO_NOME[c.tipo] || 'Outro') + '</span>';
     return '<li class="crm-item' + (comprador ? '' : ' crm-fora') + '" data-numero="' + esc(c.numero) + '">' +
       '<div class="crm-topo"><b>' + esc(c.nome || fone(c.numero)) + '</b>' + selo + '</div>' +
-      '<div class="crm-sub">' + esc(fone(c.numero)) + ' · ' + esc(haQuanto(c.ultimo_contato)) + (esperando ? ' · <span class="crm-esperando">esperando resposta</span>' : '') + '</div>' +
+      '<div class="crm-sub">' + esc(fone(c.numero)) + ' · ' + esc(haQuanto(c.ultimo_contato)) + (esperando ? ' · <span class="crm-esperando">esperando resposta</span>' : '') + (comprador && c.veio_do_site ? ' · 🌐 veio do site' : '') + '</div>' +
+      (comprador && SITUACAO_NOME[c.situacao] ? '<div class="crm-situacao sit-' + esc(c.situacao) + '">' + SITUACAO_NOME[c.situacao] + (c.retirada_em && /fechado|nao_buscou/.test(c.situacao) ? ' · combinado para ' + esc(String(c.retirada_em).split('-').reverse().slice(0, 2).join('/')) : '') + '</div>' : '') +
       (c.interesse ? '<div class="crm-interesse">' + (comprador ? '📱' : TIPO_ICONE[c.tipo] || '💬') + ' ' + esc(c.interesse) + (comprador && Number(c.valor) > 0 ? ' · ' + reais(c.valor) : '') + '</div>' : '') +
       (c.resumo ? '<div class="crm-resumo">' + esc(c.resumo) + '</div>' : (c.msgs_novas > 0 ? '<div class="crm-resumo muted">A IA ainda vai ler esta conversa…</div>' : '')) +
       (c.proxima_acao ? '<div class="crm-acao">➡️ ' + esc(c.proxima_acao) + '</div>' : '') +
