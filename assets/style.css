@@ -111,3 +111,33 @@ body { background: var(--fundo); color: var(--texto); font: 15px/1.5 Manrope, sy
 .cerebro-svg.falando { filter: drop-shadow(0 0 10px rgba(255,226,122,1)) drop-shadow(0 0 30px rgba(255,190,40,.85)); }
 .cerebro-svg.falando .cb-nucleo .cb-corpo { filter: drop-shadow(0 0 16px rgba(255,226,122,1)); }
 @media (prefers-reduced-motion: reduce) { .btn-mic.on, .cerebro-svg.ouvindo .cb-nucleo .cb-halo { animation: none; } }
+
+/* ---------- Celular: topo compacto, conversa com espaço e texto da IA formatado ---------- */
+.app { height: 100vh; height: 100dvh; }
+.conversa { min-height: 0; }
+.topo-acoes { display: flex; gap: 6px; margin-left: auto; }
+.btn-mini .ic { display: none; font-weight: 800; }
+.m.ia { white-space: normal; }
+.m.ia p { margin: 0 0 6px; } .m.ia p:last-child { margin-bottom: 0; }
+.m.ia .md-h { color: var(--ouro); font-weight: 800; margin-top: 8px; }
+.m.ia ul { margin: 2px 0 8px; padding-left: 18px; } .m.ia li { margin: 2px 0; }
+.tabela { overflow-x: auto; margin: 6px -4px 8px; -webkit-overflow-scrolling: touch; }
+.tabela table { border-collapse: collapse; font-size: 13px; min-width: 100%; }
+.tabela th, .tabela td { border-bottom: 1px solid var(--borda); padding: 5px 8px; text-align: left; white-space: nowrap; }
+.tabela th { color: var(--ouro); font-weight: 700; }
+@media (max-width: 760px) {
+  .topo { display: grid; grid-template-columns: 1fr auto; gap: 6px 8px; padding: 10px 12px; }
+  .topo .marca { font-size: 18px; }
+  .conexoes { grid-column: 1 / -1; grid-row: 2; margin: 0; gap: 4px; }
+  .con { font-size: 11px; padding: 1px 7px; }
+  .btn-mini { padding: 5px 9px; }
+  .btn-mini .ic { display: inline; } .btn-mini .tx { display: none; }
+  .cerebro { padding: 2px 8px 0; }
+  .cerebro-desenho { height: clamp(170px, 30vh, 260px); }
+  .cerebro.recolhido .cerebro-desenho { height: 58px; }
+  .cb-recolher { top: 4px; right: 8px; width: 28px; height: 28px; }
+  .conversa { padding: 12px; gap: 8px; }
+  .m { max-width: 94%; }
+  .enviar { padding: 8px 12px calc(10px + env(safe-area-inset-bottom)); gap: 6px; }
+  .btn-mic { width: 44px; }
+}

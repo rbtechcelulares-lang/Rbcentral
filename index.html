@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/style.css?v=4">
+  <link rel="stylesheet" href="assets/style.css?v=5">
 </head>
 <body>
   <!-- Login -->
@@ -29,8 +29,10 @@
     <header class="topo">
       <div class="marca">RB <b>Central</b></div>
       <div class="conexoes" id="conexoes"></div>
-      <button class="btn-mini" id="limpar" title="Nova conversa">Nova conversa</button>
-      <button class="btn-mini" id="sair" title="Sair">Sair</button>
+      <div class="topo-acoes">
+        <button class="btn-mini" id="limpar" title="Nova conversa" aria-label="Nova conversa"><span class="ic">＋</span><span class="tx">Nova conversa</span></button>
+        <button class="btn-mini" id="sair" title="Sair">Sair</button>
+      </div>
     </header>
     <div class="cerebro" id="cerebro">
       <button type="button" class="cb-recolher" id="cb-recolher" aria-expanded="true" title="Recolher o cérebro">▴</button>
@@ -40,7 +42,7 @@
     <main class="conversa" id="conversa" aria-live="polite"></main>
     <form class="enviar" id="enviar">
       <textarea id="msg" rows="1" maxlength="2000" placeholder="O que você precisa?"></textarea>
-      <button type="button" class="btn-mic" id="mic" aria-label="Falar com o RB Central" aria-pressed="false" hidden>
+      <button type="button" class="btn-mic" id="mic" aria-label="Falar com o RB Central" aria-pressed="false">
         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/></svg>
       </button>
       <button class="btn btn-ouro" type="submit" aria-label="Enviar">➤</button>
@@ -48,6 +50,6 @@
   </section>
 
   <script src="assets/cerebro.js?v=4"></script>
-  <script src="assets/app.js?v=4"></script>
+  <script src="assets/app.js?v=5"></script>
 </body>
 </html>

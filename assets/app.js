@@ -3,6 +3,37 @@
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fmt = (t) => esc(t).replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>').replace(/\*([^*\n]+)\*/g, '<b>$1</b>')
     .replace(/(https:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+  // respostas da IA em blocos: tabela, lista, título e parágrafo
+  function md(t) {
+    const linhas = String(t || '').replace(/\r/g, '').split('\n');
+    const html = [];
+    let lista = null;
+    const fecharLista = () => { if (lista) { html.push('<ul>' + lista.join('') + '</ul>'); lista = null; } };
+    for (let i = 0; i < linhas.length; i++) {
+      const l = linhas[i].trim();
+      if (/^\|.*\|$/.test(l)) { // tabela markdown
+        fecharLista();
+        const rows = [];
+        while (i < linhas.length && /^\|.*\|$/.test(linhas[i].trim())) { rows.push(linhas[i].trim()); i++; }
+        i--;
+        const celulas = (r) => r.slice(1, -1).split('|').map((c) => c.trim());
+        const corpo = rows.filter((r) => !/^\|[\s:|-]+\|$/.test(r));
+        if (!corpo.length) continue;
+        const [cab, ...resto] = corpo;
+        html.push('<div class="tabela"><table><thead><tr>' + celulas(cab).map((c) => '<th>' + fmt(c) + '</th>').join('') + '</tr></thead><tbody>' +
+          resto.map((r) => '<tr>' + celulas(r).map((c) => '<td>' + fmt(c) + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>');
+        continue;
+      }
+      const item = l.match(/^(?:[-•*]|\d+[.)])\s+(.*)$/);
+      if (item) { (lista = lista || []).push('<li>' + fmt(item[1]) + '</li>'); continue; }
+      fecharLista();
+      const tit = l.match(/^#{1,4}\s+(.*)$/);
+      if (tit) { html.push('<p class="md-h">' + fmt(tit[1]) + '</p>'); continue; }
+      if (l) html.push('<p>' + fmt(l) + '</p>');
+    }
+    fecharLista();
+    return html.join('');
+  }
 
   const CHAVE_TOKEN = 'rbcentral_token';
   const CHAVE_CONVERSA = 'rbcentral_conversa';
@@ -19,16 +50,23 @@
     RBCerebro.criar($('#cerebro-login'), { rotulos: false });
     cerebro = RBCerebro.criar($('#cerebro-desenho'), { onClick: (a) => enviar(a.pedido) });
   }
-  const CHAVE_RECOLHIDO = 'rbcentral_cerebro_recolhido';
-  const recolher = (sim) => {
-    $('#cerebro').classList.toggle('recolhido', sim);
-    $('#cb-recolher').setAttribute('aria-expanded', String(!sim));
-    $('#cb-recolher').textContent = sim ? '▾' : '▴';
-    $('#cb-recolher').title = sim ? 'Mostrar o cérebro' : 'Recolher o cérebro';
-    try { localStorage.setItem(CHAVE_RECOLHIDO, sim ? '1' : ''); } catch (e) { /* ignora */ }
+  const CHAVE_CEREBRO = 'rbcentral_cerebro_pref'; // 'aberto' | 'recolhido' | '' (automático)
+  let prefCerebro = '';
+  try { prefCerebro = localStorage.getItem(CHAVE_CEREBRO) || ''; } catch (e) { /* ignora */ }
+  const mostrarCerebro = (recolhido) => {
+    $('#cerebro').classList.toggle('recolhido', recolhido);
+    $('#cb-recolher').setAttribute('aria-expanded', String(!recolhido));
+    $('#cb-recolher').textContent = recolhido ? '▾' : '▴';
+    $('#cb-recolher').title = recolhido ? 'Mostrar o cérebro' : 'Recolher o cérebro';
   };
-  $('#cb-recolher').addEventListener('click', () => recolher(!$('#cerebro').classList.contains('recolhido')));
-  try { if (localStorage.getItem(CHAVE_RECOLHIDO)) recolher(true); } catch (e) { /* ignora */ }
+  // automático: no celular, com conversa na tela, o cérebro fica numa faixa pequena
+  const ajustarCerebro = () => mostrarCerebro(prefCerebro ? prefCerebro === 'recolhido' : (itens.length > 0 && innerWidth < 760));
+  $('#cb-recolher').addEventListener('click', () => {
+    prefCerebro = $('#cerebro').classList.contains('recolhido') ? 'aberto' : 'recolhido';
+    try { localStorage.setItem(CHAVE_CEREBRO, prefCerebro); } catch (e) { /* ignora */ }
+    ajustarCerebro();
+  });
+  addEventListener('resize', () => ajustarCerebro());
 
   async function chamar(caminho, corpo) {
     const r = await fetch('api/' + caminho, {
@@ -54,13 +92,14 @@
     try {
       const s = await chamar('status');
       if (cerebro) cerebro.status(s);
-      $('#conexoes').innerHTML = [['IA', s.ia], ['Site', s.site], ['CRM', s.crm], ['Sistema de OS', s.sistema_os]]
+      $('#conexoes').innerHTML = [['IA', s.ia], ['Site', s.site], ['CRM', s.crm], ['OS', s.sistema_os]]
         .map(([n, on]) => '<span class="con' + (on ? ' on' : '') + '">' + (on ? '● ' : '○ ') + n + '</span>').join('');
     } catch (e) { /* mostrado ao usar */ }
   }
 
-  function desenhar() {
+  function desenhar(rolar) {
     const c = $('#conversa');
+    ajustarCerebro();
     c.innerHTML = (itens.length ? '' : '<div class="m ia">Olá! Sou o <b>RB Central</b>. Posso mudar preços, tirar aparelhos da vitrine, listar clientes do CRM, criar e atualizar OS, registrar pagamentos, avisar clientes, mexer nas metas, ver pedidos de peças e fazer o relatório do dia. Tudo que altera algo eu peço para você confirmar antes. 😉</div>') +
       itens.map((it, k) => {
         if (it.tipo === 'acao') {
@@ -70,11 +109,15 @@
             (!it.estado ? '<div class="botoes"><button class="btn ok" data-ok="' + k + '">Confirmar</button><button class="btn nao" data-nao="' + k + '">Cancelar</button></div>' : '') + '</div>';
         }
         if (it.tipo === 'nota') return '<div class="m nota">' + fmt(it.content) + '</div>';
-        return '<div class="m ' + (it.role === 'user' ? 'eu' : 'ia') + '">' + fmt(it.content) + '</div>';
+        if (it.role === 'user') return '<div class="m eu">' + fmt(it.content) + '</div>';
+        return '<div class="m ia" data-k="' + k + '">' + md(it.content) + '</div>';
       }).join('');
     c.querySelectorAll('[data-ok]').forEach((b) => b.addEventListener('click', () => confirmar(Number(b.dataset.ok))));
     c.querySelectorAll('[data-nao]').forEach((b) => b.addEventListener('click', () => { itens[Number(b.dataset.nao)].estado = 'cancelada'; nota('Cancelado: ' + itens[Number(b.dataset.nao)].titulo); }));
-    c.scrollTop = c.scrollHeight;
+    // resposta nova: mostra o começo dela (respostas longas não ficam cortadas em cima)
+    const alvo = typeof rolar === 'number' ? c.querySelector('.m.ia[data-k="' + rolar + '"]') : null;
+    if (alvo) c.scrollTop = Math.max(0, alvo.offsetTop - c.offsetTop - 8);
+    else c.scrollTop = c.scrollHeight;
   }
 
   function nota(t) { itens.push({ tipo: 'nota', content: t }); guardar(); desenhar(); }
@@ -88,6 +131,7 @@
     texto = String(texto || '').trim();
     if (!texto || ocupado) return;
     ocupado = true; $('#msg').value = '';
+    let novaResposta = null;
     itens.push({ role: 'user', content: texto }); guardar(); desenhar();
     $('#conversa').insertAdjacentHTML('beforeend', '<div class="digitando">RB Central está trabalhando…</div>');
     if (cerebro) cerebro.pensando(true);
@@ -96,11 +140,12 @@
       const d = await chamar('chat', { mensagens: historico() });
       if (cerebro) cerebro.acender(d.usadas);
       itens.push({ role: 'assistant', content: d.resposta });
+      novaResposta = itens.length - 1;
       (d.acoes || []).forEach((a) => itens.push({ tipo: 'acao', token: a.token, titulo: a.titulo, linhas: a.linhas }));
     } catch (e) {
       itens.push({ tipo: 'nota', content: '⚠️ ' + e.message });
     }
-    ocupado = false; guardar(); desenhar();
+    ocupado = false; guardar(); desenhar(novaResposta);
     if (cerebro) cerebro.pensando(false);
   }
 
@@ -141,9 +186,22 @@
     enviarAoFim = !!enviarDepois;
     if (rec && ouvindo) { try { rec.stop(); } catch (e) { /* ignora */ } }
   }
-  if (Reconhecimento) {
-    const mic = $('#mic');
-    mic.hidden = false;
+  const mic = $('#mic');
+  let ditando = false;
+  const modoDitado = (sim) => {
+    ditando = sim;
+    mic.classList.toggle('on', sim);
+    mic.setAttribute('aria-pressed', String(sim));
+    $('#msg').placeholder = sim ? 'Toque no 🎤 do teclado e fale…' : 'O que você precisa?';
+    if (cerebro) cerebro.ouvindo(sim);
+    if (sim) $('#msg').focus();
+  };
+  $('#msg').addEventListener('input', () => { if (ditando && cerebro) cerebro.falando(); });
+  $('#msg').addEventListener('blur', () => { if (ditando) setTimeout(() => { if (document.activeElement !== $('#msg')) modoDitado(false); }, 200); });
+  $('#enviar').addEventListener('submit', () => { if (ditando) modoDitado(false); });
+  // sem reconhecimento de voz no navegador (ex.: Chrome do iPhone, iPhone sem Siri): usa o ditado do teclado
+  let usarDitado = !Reconhecimento, irParaDitado = false;
+  {
     const marcar = (sim) => {
       ouvindo = sim;
       mic.classList.toggle('on', sim);
@@ -151,9 +209,9 @@
       mic.setAttribute('aria-label', sim ? 'Parar de ouvir' : 'Falar com o RB Central');
       $('#msg').placeholder = sim ? 'Pode falar… estou ouvindo' : 'O que você precisa?';
       if (cerebro) cerebro.ouvindo(sim);
-      if (sim) $('#cerebro').classList.remove('recolhido');
     };
     mic.addEventListener('click', () => {
+      if (usarDitado) { modoDitado(!ditando); return; }
       if (ouvindo) { pararVoz(false); return; } // tocar de novo para: o texto fica na caixa, sem enviar
       if (ocupado) return;
       rec = new Reconhecimento();
@@ -172,22 +230,29 @@
         if (cerebro) cerebro.falando();
       };
       rec.onerror = (e) => {
-        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') nota('🎤 O navegador bloqueou o microfone. Libere o microfone para este site nas configurações do navegador.');
+        if (e.error === 'service-not-allowed') { enviarAoFim = false; usarDitado = true; irParaDitado = true; return; }
+        if (e.error === 'not-allowed') nota('🎤 O navegador bloqueou o microfone. Libere o microfone para este site nas configurações do navegador.');
         else if (e.error === 'no-speech') nota('🎤 Não ouvi nada. Toque no microfone e fale de novo.');
         else if (e.error !== 'aborted') nota('🎤 Não consegui ouvir (' + e.error + ').');
         enviarAoFim = false;
       };
       rec.onend = () => {
         marcar(false);
+        if (irParaDitado) { irParaDitado = false; modoDitado(true); return; }
         const texto = $('#msg').value.trim();
         if (enviarAoFim && finalVoz.trim() && texto) enviar(texto); // parou de falar: envia sozinho
       };
       try { rec.start(); } catch (e) { marcar(false); nota('🎤 Não consegui ligar o microfone.'); }
     });
   }
-  $('#msg').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar($('#msg').value); } });
+  $('#msg').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (ditando) modoDitado(false); enviar($('#msg').value); } });
   $('#sair').addEventListener('click', sair);
-  $('#limpar').addEventListener('click', () => { if (confirm('Começar uma conversa nova?')) { itens = []; guardar(); desenhar(); } });
+  $('#limpar').addEventListener('click', () => {
+    if (!confirm('Começar uma conversa nova?')) return;
+    itens = []; prefCerebro = '';
+    try { localStorage.removeItem(CHAVE_CEREBRO); } catch (e) { /* ignora */ }
+    guardar(); desenhar();
+  });
 
   if (token) entrar(); else $('#login').hidden = false;
 })();
