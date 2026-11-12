@@ -255,6 +255,7 @@
     desenhar();
     try {
       const s = await chamar('status');
+      vozNuvem = !!s.voz;
       if (cerebro) cerebro.status(s);
       $('#conexoes').innerHTML = [['IA', s.ia], ['Site', s.site], ['CRM', s.crm], ['OS', s.sistema_os]]
         .map(([n, on]) => '<span class="con' + (on ? ' on' : '') + '">' + (on ? '● ' : '○ ') + n + '</span>').join('');
@@ -274,11 +275,22 @@
             (it.resultado ? '<div class="muted">' + fmt(it.resultado) + '</div>' : '') +
             (!it.estado ? '<div class="botoes"><button class="btn ok" data-ok="' + k + '">Confirmar</button><button class="btn nao" data-nao="' + k + '">Cancelar</button></div>' : '') + '</div>';
         }
+        if (it.tipo === 'zap') {
+          const seguro = /^https:\/\/wa\.me\/\d+\?text=/.test(it.link || '') ? it.link : '';
+          return '<div class="acao zap' + (it.estado ? ' ' + it.estado : '') + '" data-k="' + k + '"><h4>' + (it.estado === 'aberta' ? '✅ ' : '📲 ') + esc(it.titulo) + '</h4>' +
+            '<div class="zap-msg">' + fmt((it.linhas || []).join('\n')) + '</div>' +
+            (seguro ? '<div class="botoes"><a class="btn ok btn-zap" href="' + esc(seguro) + '" target="_blank" rel="noopener" data-zap="' + k + '">' + (it.estado === 'aberta' ? 'Abrir de novo no WhatsApp' : 'Enviar no WhatsApp') + '</a></div>' : '') +
+            (it.estado === 'aberta' ? '<div class="muted">Aberto no WhatsApp. Confira e toque em enviar lá.</div>' : '') + '</div>';
+        }
         if (it.tipo === 'nota') return '<div class="m nota">' + fmt(it.content) + '</div>';
         if (it.role === 'user') return '<div class="m eu">' + fmt(it.content) + '</div>';
         return '<div class="m ia" data-k="' + k + '">' + md(it.content) + '</div>';
       }).join('');
     c.querySelectorAll('[data-ok]').forEach((b) => b.addEventListener('click', () => confirmar(Number(b.dataset.ok))));
+    c.querySelectorAll('[data-zap]').forEach((b) => b.addEventListener('click', () => {
+      const it = itens[Number(b.dataset.zap)];
+      if (it && it.estado !== 'aberta') { it.estado = 'aberta'; setTimeout(() => { guardar(); desenhar(); }, 300); }
+    }));
     c.querySelectorAll('[data-nao]').forEach((b) => b.addEventListener('click', () => { itens[Number(b.dataset.nao)].estado = 'cancelada'; nota('Cancelado: ' + itens[Number(b.dataset.nao)].titulo); }));
     // resposta nova: mostra o começo dela (respostas longas não ficam cortadas em cima)
     const alvo = typeof rolar === 'number' ? c.querySelector('.m.ia[data-k="' + rolar + '"]') : null;
@@ -322,7 +334,9 @@
       if (cerebro) cerebro.acender(d.usadas);
       novaResposta = { role: 'assistant', content: d.resposta };
       lista.push(novaResposta);
-      (d.acoes || []).forEach((a) => lista.push({ tipo: 'acao', token: a.token, titulo: a.titulo, linhas: a.linhas, em: Date.now() }));
+      (d.acoes || []).forEach((a) => lista.push(a.tipo === 'whatsapp'
+        ? { tipo: 'zap', titulo: a.titulo, linhas: a.linhas, link: a.link }
+        : { tipo: 'acao', token: a.token, titulo: a.titulo, linhas: a.linhas, em: Date.now() }));
     } catch (e) {
       lista.push({ tipo: 'nota', content: '⚠️ ' + e.message });
     }
@@ -360,22 +374,152 @@
       entrar();
     } catch (er) { $('#login-erro').textContent = er.message; $('#login-erro').hidden = false; }
   });
-  $('#enviar').addEventListener('submit', (e) => { e.preventDefault(); pararVoz(false); enviar($('#msg').value); });
+  $('#enviar').addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (gravacao) return pararGravacao('enviar'); // tocou em enviar enquanto falava: transcreve e envia
+    pararVoz(false); enviar($('#msg').value);
+  });
 
-  // ---------- Microfone: fala → texto (português). Enquanto ouve, o cérebro acende em neon ----------
+  // ---------- Microfone ----------
+  // 1º: grava o áudio e transcreve no servidor com o Whisper large-v3 (Groq): funciona em qualquer navegador, inclusive no iPhone.
+  // 2º (sem GROQ_API_KEY): reconhecimento de voz do navegador. 3º: ditado do teclado.
+  // Enquanto ouve, o cérebro acende em neon e pulsa junto com a voz. Para sozinho quando você para de falar.
   const Reconhecimento = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const podeGravar = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
+  let vozNuvem = false; // o servidor transcreve (vem do /api/status)
   let rec = null, ouvindo = false, enviarAoFim = true, textoBase = '', finalVoz = '';
+  let gravacao = null, transcrevendo = false;
+  const mic = $('#mic');
   function pararVoz(enviarDepois) {
     enviarAoFim = !!enviarDepois;
     if (rec && ouvindo) { try { rec.stop(); } catch (e) { /* ignora */ } }
+    if (gravacao) pararGravacao(enviarDepois ? 'enviar' : 'descartar');
   }
-  const mic = $('#mic');
+  function estadoMic(e, dica) {
+    mic.classList.toggle('on', e === 'ouvindo');
+    mic.classList.toggle('carregando', e === 'transcrevendo');
+    mic.setAttribute('aria-pressed', String(e === 'ouvindo'));
+    mic.setAttribute('aria-label', e === 'ouvindo' ? 'Parar de ouvir' : e === 'transcrevendo' ? 'Transcrevendo' : 'Falar com o RB Central');
+    $('#msg').placeholder = dica || (e === 'ouvindo' ? 'Pode falar… estou ouvindo' : e === 'transcrevendo' ? 'Transcrevendo…' : 'O que você precisa?');
+    if (cerebro) {
+      cerebro.ouvindo(e === 'ouvindo');
+      if (e === 'transcrevendo' || mic.dataset.pensou) { cerebro.pensando(e === 'transcrevendo' || ocupado); mic.dataset.pensou = e === 'transcrevendo' ? '1' : ''; }
+    }
+  }
+  const paraBase64 = (blob) => new Promise((ok, erro) => {
+    const r = new FileReader();
+    r.onload = () => ok(String(r.result).split(',')[1] || '');
+    r.onerror = () => erro(new Error('não consegui ler o áudio'));
+    r.readAsDataURL(blob);
+  });
+
+  async function gravar() {
+    if (ocupado || gravacao || transcrevendo) return;
+    // o iPhone só libera o áudio se ele for criado no toque
+    const AC = window.AudioContext || window.webkitAudioContext;
+    let ctxA = null;
+    try { ctxA = AC ? new AC() : null; if (ctxA && ctxA.state === 'suspended') ctxA.resume(); } catch (e) { ctxA = null; }
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+    } catch (e) {
+      if (ctxA) ctxA.close().catch(() => {});
+      const n = (e && e.name) || '';
+      if (n === 'NotAllowedError' || n === 'SecurityError') nota('🎤 O microfone está bloqueado para este site. No iPhone: toque em "aA" na barra de endereço › Ajustes do Site › Microfone › Permitir (no Chrome do iPhone: Ajustes do iPhone › Chrome › Microfone). No computador: cadeado ao lado do endereço › Microfone › Permitir.');
+      else if (n === 'NotFoundError') nota('🎤 Não achei nenhum microfone neste aparelho.');
+      else nota('🎤 Não consegui ligar o microfone (' + (n || 'erro') + ').');
+      return;
+    }
+    const tipo = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/ogg;codecs=opus', 'audio/webm'].find((t) => { try { return MediaRecorder.isTypeSupported(t); } catch (e) { return false; } }) || '';
+    let mr;
+    try { mr = new MediaRecorder(stream, Object.assign({ audioBitsPerSecond: 32000 }, tipo ? { mimeType: tipo } : {})); } catch (e) {
+      try { mr = new MediaRecorder(stream); } catch (e2) {
+        stream.getTracks().forEach((t) => t.stop()); if (ctxA) ctxA.close().catch(() => {});
+        return nota('🎤 Este navegador não consegue gravar áudio.');
+      }
+    }
+    const g = { mr, stream, ctxA, pedacos: [], modo: 'enviar', falou: false, voz: 0, inicio: Date.now(), ultimaVoz: 0, piso: 1, medidor: false, base: $('#msg').value.trim() };
+    gravacao = g;
+    mr.ondataavailable = (e) => { if (e.data && e.data.size) g.pedacos.push(e.data); };
+    mr.onstop = () => terminarGravacao(g);
+    // volume da voz: o cérebro pulsa junto e a gravação para sozinha depois de 1,5 s de silêncio
+    let an = null, amostra = null;
+    if (ctxA) {
+      try { an = ctxA.createAnalyser(); an.fftSize = 1024; ctxA.createMediaStreamSource(stream).connect(an); amostra = new Uint8Array(an.fftSize); g.medidor = true; } catch (e) { an = null; }
+    }
+    g.timer = setInterval(() => {
+      const agora = Date.now(), t = agora - g.inicio;
+      if (an) {
+        an.getByteTimeDomainData(amostra);
+        let soma = 0;
+        for (let i = 0; i < amostra.length; i++) { const v = (amostra[i] - 128) / 128; soma += v * v; }
+        const rms = Math.sqrt(soma / amostra.length);
+        // ruído de fundo: começa pelo menor volume do início e se ajusta devagar
+        if (t < 350) g.piso = Math.min(g.piso, rms);
+        else g.piso = rms < g.piso ? g.piso * 0.7 + rms * 0.3 : g.piso * 0.997 + rms * 0.003;
+        const limiar = Math.max(0.012, Math.min(0.08, g.piso * 3));
+        if (t >= 350 && rms > limiar) {
+          g.voz++; g.ultimaVoz = agora;
+          if (g.voz >= 2) g.falou = true;
+          if (cerebro && agora - (g.pulso || 0) > 220) { g.pulso = agora; cerebro.falando(); }
+        }
+        mic.style.setProperty('--nivel', Math.min(1, rms / 0.12).toFixed(2));
+        if (g.falou && agora - g.ultimaVoz > 1500) return pararGravacao('enviar');
+        if (!g.falou && t > 8000) return pararGravacao('nada');
+      } else if (t > 15000) return pararGravacao('enviar'); // sem medidor de volume: no máximo 15 s (ou toque para parar)
+      if (t > 60000) pararGravacao('enviar');
+    }, 100);
+    try { mr.start(); } catch (e) {
+      clearInterval(g.timer); gravacao = null;
+      stream.getTracks().forEach((t) => t.stop()); if (ctxA) ctxA.close().catch(() => {});
+      return nota('🎤 Não consegui começar a gravar.');
+    }
+    estadoMic('ouvindo');
+  }
+  function pararGravacao(modo) {
+    const g = gravacao;
+    if (!g) return;
+    g.modo = modo;
+    clearInterval(g.timer);
+    try { if (g.mr.state !== 'inactive') g.mr.stop(); else terminarGravacao(g); } catch (e) { terminarGravacao(g); }
+  }
+  async function terminarGravacao(g) {
+    if (g.fim) return;
+    g.fim = true;
+    clearInterval(g.timer);
+    if (gravacao === g) gravacao = null;
+    g.stream.getTracks().forEach((t) => t.stop()); // apaga o aviso de microfone ligado do aparelho
+    if (g.ctxA) g.ctxA.close().catch(() => {});
+    mic.style.removeProperty('--nivel');
+    if (g.modo === 'descartar') return estadoMic('livre');
+    if (g.modo === 'nada' || (g.medidor && !g.falou && g.modo !== 'caixa')) { estadoMic('livre'); return nota('🎤 Não ouvi nada. Toque no microfone e fale perto dele.'); }
+    const blob = new Blob(g.pedacos, { type: String(g.mr.mimeType || 'audio/webm').split(';')[0] });
+    if (blob.size < 800) { estadoMic('livre'); return nota('🎤 A gravação ficou vazia. Tente de novo.'); }
+    transcrevendo = true;
+    estadoMic('transcrevendo');
+    try {
+      const d = await chamar('transcrever', { audio: await paraBase64(blob), tipo: blob.type });
+      const texto = String(d.texto || '').trim();
+      transcrevendo = false; estadoMic('livre');
+      if (!texto) return nota('🎤 Não entendi. Fale de novo, um pouco mais perto do microfone.');
+      $('#msg').value = [g.base, texto].filter(Boolean).join(' ');
+      crescer();
+      if (g.modo === 'enviar') enviar($('#msg').value); // parou de falar: envia sozinho
+      else $('#msg').focus(); // parou no botão: o texto fica na caixa para conferir
+    } catch (e) {
+      transcrevendo = false; estadoMic('livre');
+      if (/GROQ_API_KEY/.test(e.message)) vozNuvem = false;
+      nota('🎤 Não consegui transcrever: ' + e.message);
+    }
+  }
+
+  // ditado do teclado (último recurso): o cérebro acende enquanto o texto entra
   let ditando = false;
   const modoDitado = (sim) => {
     ditando = sim;
     mic.classList.toggle('on', sim);
     mic.setAttribute('aria-pressed', String(sim));
-    $('#msg').placeholder = sim ? 'Toque no 🎤 do teclado e fale…' : 'O que você precisa?';
+    $('#msg').placeholder = sim ? 'Use o 🎤 do teclado e fale…' : 'O que você precisa?';
     if (cerebro) cerebro.ouvindo(sim);
     if (sim) $('#msg').focus();
   };
@@ -385,15 +529,11 @@
   // sem reconhecimento de voz no navegador (ex.: Chrome do iPhone, iPhone sem Siri): usa o ditado do teclado
   let usarDitado = !Reconhecimento, irParaDitado = false;
   {
-    const marcar = (sim) => {
-      ouvindo = sim;
-      mic.classList.toggle('on', sim);
-      mic.setAttribute('aria-pressed', String(sim));
-      mic.setAttribute('aria-label', sim ? 'Parar de ouvir' : 'Falar com o RB Central');
-      $('#msg').placeholder = sim ? 'Pode falar… estou ouvindo' : 'O que você precisa?';
-      if (cerebro) cerebro.ouvindo(sim);
-    };
+    const marcar = (sim) => { ouvindo = sim; estadoMic(sim ? 'ouvindo' : 'livre'); };
     mic.addEventListener('click', () => {
+      if (gravacao) return pararGravacao('caixa'); // tocar de novo: para e deixa o texto na caixa para conferir
+      if (transcrevendo) return;
+      if (vozNuvem && podeGravar && !ditando) { gravar(); return; }
       if (usarDitado) { modoDitado(!ditando); return; }
       if (ouvindo) { pararVoz(false); return; } // tocar de novo para: o texto fica na caixa, sem enviar
       if (ocupado) return;

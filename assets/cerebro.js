@@ -23,7 +23,8 @@
     site_listar_aparelhos: ['aparelhos', 'vitrine'], site_alterar_preco: ['aparelhos'], site_vitrine: ['vitrine'],
     site_clientes_crm: ['clientes'], relatorio_do_dia: ['nucleo', 'cliques', 'metas'],
     os_listar: ['os'], os_ver: ['os'], os_configuracao: ['os'], os_criar: ['os'], os_mudar_status: ['os'],
-    os_marcar_pago: ['pagamentos'], os_avisar_cliente: ['avisos'], metas_listar: ['metas'], meta_alterar: ['metas'], pecas_listar_pedidos: ['pecas']
+    os_marcar_pago: ['pagamentos'], os_avisar_cliente: ['avisos'], metas_listar: ['metas'], meta_alterar: ['metas'], pecas_listar_pedidos: ['pecas'],
+    equipe_mandar_mensagem: ['nucleo']
   };
 
   // números "aleatórios" sempre iguais, para o desenho não mudar a cada visita

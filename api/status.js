@@ -10,6 +10,7 @@ module.exports = async (req, res) => {
     ia: !!process.env.ANTHROPIC_API_KEY,
     site: rb.githubOk(),
     crm: rb.githubOk() && rb.supabaseOk(),
-    sistema_os: saas.ok()
+    sistema_os: saas.ok(),
+    voz: !!String(process.env.GROQ_API_KEY || '').trim() // microfone com transcrição Whisper no servidor
   });
 };

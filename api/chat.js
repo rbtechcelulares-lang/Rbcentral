@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const auth = require('../lib/auth');
 const f = require('../lib/ferramentas');
 const rb = require('../lib/rb');
+const equipe = require('../lib/equipe');
 
 const MODELO = 'claude-haiku-5-5';
 const MAX_MENSAGENS = 20;
@@ -30,6 +31,7 @@ const SISTEMA = [
   '- Para avisar um cliente, escreva uma mensagem curta, educada e com o nome dele, dizendo o que mudou (ex.: aparelho pronto para retirada).',
   '- Você não altera configurações do sistema de OS nem do site além das ferramentas que tem; se pedirem, diga que isso é feito no painel do sistema.',
   '- Relatório do dia: use relatorio_do_dia. Um grupo por sistema (**Site** e **Sistema de OS**), números como itens ("- Visitas · 120", "- Faturamento · R$ 1.250,00"), depois **Atenção** com no máximo 3 itens. Se um sistema não estiver configurado, diga isso em uma linha.',
+  '- Mensagem para a equipe ("manda pro funcionário", "avisa o Nizael", "fala pro Nizael que…", "manda isso pro Nizael"): use equipe_mandar_mensagem. Escreva a mensagem pronta como se fosse o dono falando: curta, clara, com saudação pelo nome e o que a pessoa precisa fazer. Se o pedido citar OS, cliente, aparelho, peça ou "isso" (algo da conversa), use os dados certos: consulte as ferramentas antes e inclua número da OS, cliente, aparelho, defeito e prazo quando fizer sentido. Não invente dados. Depois diga em uma frase que é só tocar em "Enviar no WhatsApp".',
   '- Valores em reais no formato R$ 1.234,00. Datas e "hoje" no horário de Brasília.'
 ].join('\n');
 
@@ -48,7 +50,8 @@ module.exports = async (req, res) => {
 
   const ferramentas = f.ferramentasDisponiveis();
   const conectados = 'Hoje é ' + rb.hojeBR() + ' (Brasília). Conectado: ' +
-    [ferramentas.some((t) => t.name === 'site_listar_aparelhos') ? 'site' : null, ferramentas.some((t) => t.name === 'site_clientes_crm') ? 'CRM do site' : null, ferramentas.some((t) => t.name === 'os_listar') ? 'sistema de OS' : null].filter(Boolean).join(', ') + '.';
+    [ferramentas.some((t) => t.name === 'site_listar_aparelhos') ? 'site' : null, ferramentas.some((t) => t.name === 'site_clientes_crm') ? 'CRM do site' : null, ferramentas.some((t) => t.name === 'os_listar') ? 'sistema de OS' : null].filter(Boolean).join(', ') + '.' +
+    ' Equipe no WhatsApp: ' + (equipe.nomes() || 'ninguém cadastrado ainda (variável CENTRAL_EQUIPE na Vercel)') + '.';
 
   const client = new Anthropic();
   const conversa = mensagens.slice();
@@ -73,6 +76,13 @@ module.exports = async (req, res) => {
       const resultados = await Promise.all(resp.content.filter((b) => b.type === 'tool_use').map(async (b) => {
         usadas.add(b.name);
         try {
+          if (b.name === 'equipe_mandar_mensagem') {
+            const p = equipe.achar(b.input.para);
+            const msg = String(b.input.mensagem || '').trim().slice(0, 1500);
+            if (!msg) throw new Error('mensagem vazia');
+            acoes.push({ tipo: 'whatsapp', titulo: 'WhatsApp para ' + p.nome, linhas: [msg], link: equipe.link(p.numero, msg) });
+            return { type: 'tool_result', tool_use_id: b.id, content: JSON.stringify({ pronto: true, para: p.nome, aviso: 'Apareceu na tela o botão "Enviar no WhatsApp". Ainda não foi enviado: o dono toca no botão e envia no WhatsApp.' }) };
+          }
           if (f.NOMES_ALTERACAO.has(b.name)) {
             const p = await f.previa(b.name, b.input);
             const token = auth.selar({ tipo: 'acao', uid: crypto.randomUUID(), nome: b.name, entrada: b.input }, 15);

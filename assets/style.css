@@ -191,3 +191,14 @@ body { background: var(--fundo); color: var(--texto); font: 15px/1.5 Manrope, sy
 /* ---------- Nuvem do histórico ---------- */
 .hist-nota.aviso { color: #fbe38e; }
 .hist-sql { border: 1px solid var(--ouro); background: rgba(245,197,66,.1); color: var(--ouro); border-radius: 12px; padding: 10px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+
+/* ---------- Microfone: brilho acompanha a voz e "carregando" enquanto transcreve ---------- */
+.btn-mic.on[style*="--nivel"] { animation: none; box-shadow: 0 0 0 calc(3px + var(--nivel) * 9px) rgba(245,197,66,.22), 0 0 calc(14px + var(--nivel) * 26px) rgba(245,197,66,.9); }
+.btn-mic.carregando { color: var(--ouro); border-color: var(--ouro); position: relative; }
+.btn-mic.carregando svg { opacity: .35; }
+.btn-mic.carregando::after { content: ''; position: absolute; width: 22px; height: 22px; border-radius: 50%; border: 2.5px solid rgba(245,197,66,.3); border-top-color: var(--ouro); animation: mic-girar .8s linear infinite; }
+@keyframes mic-girar { to { transform: rotate(360deg); } }
+/* ---------- Cartão de WhatsApp para a equipe ---------- */
+.acao.zap .zap-msg { white-space: pre-wrap; background: #0f1a12; border: 1px solid #1f3a27; border-radius: 12px; padding: 10px 12px; margin: 6px 0 10px; line-height: 1.45; }
+.acao.zap .btn-zap { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; background: #25d366; color: #0b1f12; }
+.acao.zap.aberta { opacity: .85; }

@@ -33,6 +33,8 @@ Ele **não** mexe nas configurações do sistema de OS nem da página do site.
 | `SAAS_API_URL` | Endereço base da API do sistema de OS (ex.: `https://rbtechcelulares.reparosimples.com/api/central`) |
 | `SAAS_API_TOKEN` | O mesmo valor de `CENTRAL_API_TOKEN` configurado no sistema de OS |
 | `SAAS_LOJA` | A sua loja no sistema de OS: `rbtechcelulares` (é o padrão se ficar vazio) |
+| `GROQ_API_KEY` | **Microfone.** Chave grátis da Groq (console.groq.com › API Keys) para transcrever a voz com o Whisper large-v3. Sem ela, o microfone usa o reconhecimento do navegador ou o ditado do teclado |
+| `CENTRAL_EQUIPE` | **Equipe no WhatsApp.** `Nome:número com DDD`, várias pessoas separadas por vírgula (ex.: `Nizael:5548999999999`). Fica aqui e não no código porque o repositório é público |
 
 As variáveis de cada sistema são independentes: com só as do site, ele já funciona para o
 site. O sistema de OS entra quando a API dele estiver pronta.
