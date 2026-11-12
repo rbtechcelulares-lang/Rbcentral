@@ -483,6 +483,18 @@
     clearInterval(g.timer);
     try { if (g.mr.state !== 'inactive') g.mr.stop(); else terminarGravacao(g); } catch (e) { terminarGravacao(g); }
   }
+  // qual motor transcreveu: Claude (até o limite do dia) ou Whisper grátis; avisa uma vez quando o limite acaba
+  function motorVoz(d) {
+    const c = d.claude || {};
+    mic.title = d.motor === 'claude' ? 'Voz: Whisper + revisão do Claude (' + c.usados + ' de ' + c.limite + ' hoje)' : 'Voz: Whisper grátis' + (c.esgotado ? ' (limite do Claude de hoje atingido)' : '');
+    if (!c.esgotado) return;
+    const hoje = new Date().toLocaleDateString('pt-BR');
+    let avisado = '';
+    try { avisado = localStorage.getItem('rbcentral_voz_limite') || ''; } catch (e) { /* ignora */ }
+    if (avisado === hoje) return;
+    try { localStorage.setItem('rbcentral_voz_limite', hoje); } catch (e) { /* ignora */ }
+    nota('🎤 As ' + c.limite + ' transcrições de hoje revisadas pelo Claude acabaram. Até amanhã o microfone segue com o Whisper grátis.');
+  }
   async function terminarGravacao(g) {
     if (g.fim) return;
     g.fim = true;
@@ -501,6 +513,7 @@
       const d = await chamar('transcrever', { audio: await paraBase64(blob), tipo: blob.type });
       const texto = String(d.texto || '').trim();
       transcrevendo = false; estadoMic('livre');
+      motorVoz(d);
       if (!texto) return nota('🎤 Não entendi. Fale de novo, um pouco mais perto do microfone.');
       $('#msg').value = [g.base, texto].filter(Boolean).join(' ');
       crescer();

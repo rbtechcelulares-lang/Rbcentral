@@ -34,6 +34,7 @@ Ele **não** mexe nas configurações do sistema de OS nem da página do site.
 | `SAAS_API_TOKEN` | O mesmo valor de `CENTRAL_API_TOKEN` configurado no sistema de OS |
 | `SAAS_LOJA` | A sua loja no sistema de OS: `rbtechcelulares` (é o padrão se ficar vazio) |
 | `GROQ_API_KEY` | **Microfone.** Chave grátis da Groq (console.groq.com › API Keys) para transcrever a voz com o Whisper large-v3. Sem ela, o microfone usa o reconhecimento do navegador ou o ditado do teclado |
+| `CENTRAL_LIMITE_VOZ_CLAUDE` | **Opcional.** Quantas transcrições por dia o Claude Haiku revisa depois do Whisper (padrão `40`; `0` desliga). Passando do limite, segue só com o Whisper grátis até o dia seguinte. A API do Claude não recebe áudio, por isso ele revisa o texto em vez de ouvir |
 | `CENTRAL_EQUIPE` | **Equipe no WhatsApp.** `Nome:número com DDD`, várias pessoas separadas por vírgula (ex.: `Nizael:5548999999999`). Fica aqui e não no código porque o repositório é público |
 
 As variáveis de cada sistema são independentes: com só as do site, ele já funciona para o

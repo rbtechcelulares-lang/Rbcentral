@@ -1,4 +1,5 @@
--- RB Central · histórico das 6 últimas conversas, o mesmo no iPhone e no computador.
+-- RB Central · histórico das 6 últimas conversas (o mesmo no iPhone e no computador)
+-- e contador diário de uso (limite de transcrições revisadas pelo Claude).
 -- Rode no Supabase do SITE (o mesmo do CRM): SQL Editor › New query › cole tudo › Run.
 -- Precisa do clientes.sql do site já rodado (usa a mesma chave do painel).
 -- Pode rodar de novo sem perder nada.
@@ -69,3 +70,41 @@ end;
 $$;
 revoke all on function public.central_conversa_apagar(text, text) from public;
 grant execute on function public.central_conversa_apagar(text, text) to anon, authenticated;
+
+-- ---------------------------------------------------------------------------------------------
+-- Contador diário de uso (ex.: 40 transcrições do microfone revisadas pelo Claude por dia;
+-- passando do limite, o microfone segue só com o Whisper grátis até o dia seguinte)
+create table if not exists public.central_uso (
+  dia date not null,
+  tipo text not null check (tipo ~ '^[a-z_]{1,30}$'),
+  qtd integer not null default 0,
+  primary key (dia, tipo)
+);
+alter table public.central_uso enable row level security;
+revoke all on public.central_uso from anon, authenticated;
+
+-- Conta um uso de hoje (horário de Brasília) se ainda couber no limite e diz se pode usar
+create or replace function public.central_uso_contar(chave text, p_tipo text, p_limite integer)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  hoje date := (now() at time zone 'America/Sao_Paulo')::date;
+  n integer;
+begin
+  perform painel_checar(chave);
+  insert into central_uso (dia, tipo, qtd) values (hoje, p_tipo, 1)
+  on conflict (dia, tipo) do update set qtd = central_uso.qtd + 1
+  where central_uso.qtd < p_limite
+  returning qtd into n;
+  delete from central_uso where dia < hoje - 30;
+  if n is null then
+    return jsonb_build_object('ok', false, 'usados', p_limite, 'limite', p_limite);
+  end if;
+  return jsonb_build_object('ok', true, 'usados', n, 'limite', p_limite);
+end;
+$$;
+revoke all on function public.central_uso_contar(text, text, integer) from public;
+grant execute on function public.central_uso_contar(text, text, integer) to anon, authenticated;
