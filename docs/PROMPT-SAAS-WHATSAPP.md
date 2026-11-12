@@ -86,7 +86,7 @@ A RB Central também mostra essas mensagens para eu confirmar de lá. Para não 
 - **No momento do acontecimento**, continue chamando a Central como já combinado:
   `POST {CENTRAL_URL}/api/evento` (venda, os_criada, orcamento, follow_up) ou
   `/api/os-status` (status), com `Authorization: Bearer {CENTRAL_API_TOKEN}`. Se isso ainda não
-  existe, siga o formato de `docs/CONTRATO-API-SAAS.md` do repositório rbcentral.
+  existe, faça primeiro o prompt anterior (o dos eventos para a RB Central), que tem o formato.
 - **Se a pessoa tocar em "Enviar pelo WhatsApp" aqui no sistema**, depois de enviar chame a Central de
   novo com o mesmo corpo e mais `"ja_enviado": true` e `"mensagem": "<texto enviado>"`. A Central tira
   a mensagem da lista dela.
