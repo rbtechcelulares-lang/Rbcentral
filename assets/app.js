@@ -273,28 +273,32 @@
   setInterval(() => { if (document.visibilityState === 'visible' && !$('#app').hidden) carregarAvisos(); }, 60000);
 
   // cérebro: cada neurônio é uma aba de um sistema; tocar nele pede aquilo para a IA
-  let cerebro = null;
-  if (window.RBCerebro) {
-    RBCerebro.criar($('#cerebro-login'), { rotulos: false });
-    cerebro = RBCerebro.criar($('#cerebro-desenho'), { onClick: (a) => enviar(a.pedido) });
-  }
-  const CHAVE_CEREBRO = 'rbcentral_cerebro_pref'; // 'aberto' | 'recolhido' | '' (automático)
-  let prefCerebro = '';
-  try { prefCerebro = localStorage.getItem(CHAVE_CEREBRO) || ''; } catch (e) { /* ignora */ }
-  const mostrarCerebro = (recolhido) => {
-    $('#cerebro').classList.toggle('recolhido', recolhido);
-    $('#cb-recolher').setAttribute('aria-expanded', String(!recolhido));
-    $('#cb-recolher').textContent = recolhido ? '▾' : '▴';
-    $('#cb-recolher').title = recolhido ? 'Mostrar o cérebro' : 'Recolher o cérebro';
+  // Cérebro 3D em tela cheia (assets/cerebro.js). Sem conversa ele fica em destaque e dá para girar e tocar
+  // nos sistemas; com conversa ele escurece no fundo. O botão 🧠 mostra o cérebro por cima da conversa.
+  let cerebro = null, focoManual = false;
+  const areaCerebro = () => {
+    if ($('#app').hidden) return { top: 0, bottom: $('.login-box').getBoundingClientRect().top }; // login: o cérebro fica em cima da caixa de senha
+    const topo = $('.topo').getBoundingClientRect();
+    let bottom = $('#enviar').getBoundingClientRect().top;
+    // cérebro em destaque com a mensagem de boas-vindas: ele fica no espaço acima dela
+    const app = $('#app'), prim = $('#conversa').firstElementChild;
+    if (app.classList.contains('cb-foco') && !app.classList.contains('cb-manual') && prim) bottom = Math.min(bottom, prim.getBoundingClientRect().top);
+    return { top: topo.bottom, bottom };
   };
-  // automático: no celular, com conversa na tela, o cérebro fica numa faixa pequena
-  const ajustarCerebro = () => mostrarCerebro(prefCerebro ? prefCerebro === 'recolhido' : (itens.length > 0 && innerWidth < 760));
-  $('#cb-recolher').addEventListener('click', () => {
-    prefCerebro = $('#cerebro').classList.contains('recolhido') ? 'aberto' : 'recolhido';
-    try { localStorage.setItem(CHAVE_CEREBRO, prefCerebro); } catch (e) { /* ignora */ }
-    ajustarCerebro();
-  });
-  addEventListener('resize', () => ajustarCerebro());
+  if (window.RBCerebro && $('#cerebro-fundo').getContext) {
+    cerebro = RBCerebro.criar($('#cerebro-fundo'), { onClick: (a) => { focoManual = false; enviar(a.pedido); }, area: areaCerebro });
+  }
+  const ajustarCerebro = () => {
+    if (focoManual && !itens.length) focoManual = false;
+    const foco = focoManual || !itens.length;
+    $('#app').classList.toggle('cb-foco', foco);
+    $('#app').classList.toggle('cb-manual', focoManual);
+    $('#cb-foco').setAttribute('aria-pressed', String(focoManual));
+    $('#cb-foco').title = focoManual ? 'Voltar para a conversa' : 'Ver o cérebro';
+    if (cerebro) cerebro.modo($('#app').hidden ? 'login' : foco ? 'foco' : 'fundo');
+  };
+  $('#cb-foco').addEventListener('click', () => { focoManual = !focoManual && itens.length > 0; ajustarCerebro(); });
+  addEventListener('keydown', (e) => { if (e.key === 'Escape' && focoManual) { focoManual = false; ajustarCerebro(); } });
 
   async function chamar(caminho, corpo) {
     const r = await fetch('api/' + caminho, {
@@ -312,6 +316,7 @@
     token = '';
     try { localStorage.removeItem(CHAVE_TOKEN); } catch (e) { /* ignora */ }
     $('#app').hidden = true; $('#login').hidden = false;
+    if (cerebro) cerebro.modo('login');
   }
 
   // link vindo do Admin do site (botão "Follow-up pela Central"): ?pedir=... já escreve o pedido na caixa,
@@ -402,6 +407,7 @@
     texto = String(texto || '').trim();
     if (!texto || ocupado) return;
     ocupado = true; $('#msg').value = ''; crescer();
+    focoManual = false; // mandou mensagem: volta para a conversa para ver a resposta
     let novaResposta = null;
     itens.push({ role: 'user', content: texto });
     const conv = conversaAtual();
@@ -668,15 +674,22 @@
       try { rec.start(); } catch (e) { marcar(false); nota('🎤 Não consegui ligar o microfone.'); }
     });
   }
-  // Enter quebra a linha (não envia). No computador, Ctrl+Enter ou ⌘+Enter envia.
+  // Enter: no computador (mouse e teclado físico) envia, e Shift+Enter quebra a linha;
+  // no celular quebra a linha, e quem envia é o botão ➤. Ctrl+Enter ou ⌘+Enter envia sempre.
+  const ehComputador = () => matchMedia('(hover: hover) and (pointer: fine)').matches;
   $('#msg').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); if (ditando) modoDitado(false); pararVoz(false); enviar($('#msg').value); }
+    if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
+    const envia = e.ctrlKey || e.metaKey || (ehComputador() && !e.shiftKey && !e.altKey);
+    if (!envia) return; // celular, ou Shift+Enter no computador: quebra a linha
+    e.preventDefault();
+    if (ditando) modoDitado(false);
+    pararVoz(false);
+    enviar($('#msg').value);
   });
   $('#msg').addEventListener('input', crescer);
   $('#sair').addEventListener('click', sair);
   function novaConversa() {
-    abrirConversa(null); prefCerebro = '';
-    try { localStorage.removeItem(CHAVE_CEREBRO); } catch (e) { /* ignora */ }
+    abrirConversa(null); focoManual = false;
     fecharHistorico(); desenhar(); $('#msg').focus();
   }
   $('#limpar').addEventListener('click', novaConversa);
@@ -722,7 +735,7 @@
     const ab = e.target.closest('[data-abrir]');
     if (ab) {
       const c = conversas.find((x) => x.id === ab.dataset.abrir);
-      if (c) { abrirConversa(c); prefCerebro = ''; fecharHistorico(); desenhar(); }
+      if (c) { abrirConversa(c); focoManual = false; fecharHistorico(); desenhar(); }
       return;
     }
     const ap = e.target.closest('[data-apagar]');
@@ -888,5 +901,5 @@
   });
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#crm').hidden) fecharCrm(); });
 
-  if (token) entrar(); else $('#login').hidden = false;
+  if (token) entrar(); else { $('#login').hidden = false; if (cerebro) cerebro.modo('login'); }
 })();

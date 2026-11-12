@@ -4,17 +4,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="robots" content="noindex, nofollow">
-  <meta name="theme-color" content="#0b0b0b">
+  <meta name="theme-color" content="#000000">
   <title>RB Central</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/style.css?v=16">
+  <link rel="stylesheet" href="assets/style.css?v=17">
 </head>
 <body>
+  <!-- Cérebro 3D: ocupa a tela toda, atrás de tudo -->
+  <canvas class="cerebro-fundo" id="cerebro-fundo" role="img" aria-label="Cérebro do RB Central: arraste para girar; cada neurônio grande é um sistema"></canvas>
   <!-- Login -->
   <section id="login" class="login" hidden>
-    <div class="cerebro cerebro-login" id="cerebro-login" aria-hidden="true"></div>
     <form class="login-box" id="login-form">
       <div class="marca">RB <b>Central</b></div>
       <p class="muted">Assistente de gestão da RB Tech. Entre com a <b>mesma senha do admin do site</b>.</p>
@@ -30,6 +31,7 @@
       <div class="marca">RB <b>Central</b></div>
       <div class="conexoes" id="conexoes"></div>
       <div class="topo-acoes">
+        <button class="btn-mini" id="cb-foco" title="Ver o cérebro" aria-label="Ver o cérebro" aria-pressed="false"><span class="ic">🧠</span><span class="tx">Cérebro</span></button>
         <button class="btn-mini" id="crm-btn" title="CRM do WhatsApp" aria-label="CRM do WhatsApp" aria-expanded="false" aria-controls="crm"><span class="ic">📇</span><span class="tx">CRM</span></button>
         <button class="btn-mini" id="hist-btn" title="Últimas conversas" aria-label="Últimas conversas" aria-expanded="false" aria-controls="hist"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1M3.5 4v4h4M12 7.5V12l3 2"/></svg></span><span class="tx">Conversas</span></button>
         <button class="btn-mini" id="limpar" title="Nova conversa" aria-label="Nova conversa"><span class="ic">＋</span><span class="tx">Nova conversa</span></button>
@@ -45,11 +47,6 @@
         <p class="hist-nota" id="hist-nota">Guardo as 6 últimas conversas.</p>
         <button type="button" class="hist-sql" id="hist-sql" hidden>Copiar o SQL para ligar a nuvem</button>
       </div>
-    </div>
-    <div class="cerebro" id="cerebro">
-      <button type="button" class="cb-recolher" id="cb-recolher" aria-expanded="true" title="Recolher o cérebro">▴</button>
-      <div class="cerebro-desenho" id="cerebro-desenho"></div>
-      <p class="cb-dica">Toque num neurônio para abrir aquele sistema</p>
     </div>
     <button type="button" class="avisos-barra" id="avisos-barra" hidden>📣 <span id="avisos-n">mensagens para confirmar</span> <span class="avisos-ver">ver</span></button>
     <div class="hist" id="crm" hidden>
@@ -79,6 +76,7 @@
       </div>
     </div>
     <main class="conversa" id="conversa" aria-live="polite"></main>
+    <p class="cb-dica" id="cb-dica">Arraste para girar · toque num neurônio para perguntar daquele sistema</p>
     <form class="enviar" id="enviar">
       <textarea id="msg" rows="1" maxlength="2000" enterkeyhint="enter" placeholder="O que você precisa?"></textarea>
       <button type="button" class="btn-mic" id="mic" aria-label="Falar com o RB Central" aria-pressed="false">
@@ -88,7 +86,7 @@
     </form>
   </section>
 
-  <script src="assets/cerebro.js?v=10"></script>
-  <script src="assets/app.js?v=18"></script>
+  <script src="assets/cerebro.js?v=11"></script>
+  <script src="assets/app.js?v=19"></script>
 </body>
 </html>
