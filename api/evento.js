@@ -6,6 +6,7 @@
 // Formato completo em docs/CONTRATO-API-SAAS.md. Resposta: { pendente: true, aviso } ou { pendente: false, motivo }
 const crypto = require('crypto');
 const avisos = require('../lib/avisos');
+const osStatus = require('../lib/rotas/os-status'); // o antigo /api/os-status vem para cá (vercel.json)
 const crm = require('../lib/crm-whatsapp');
 
 const igual = (a, b) => {
@@ -15,6 +16,8 @@ const igual = (a, b) => {
 };
 
 module.exports = async (req, res) => {
+  // mudança de status de OS ({ os_id }): mesmo endereço, função própria
+  if ((req.query || {}).rota === 'os-status' || (req.body && req.body.os_id && !req.body.tipo)) return osStatus(req, res);
   res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'POST') return res.status(405).json({ erro: 'Use POST.' });
   const chave = String(process.env.SAAS_API_TOKEN || '').trim();

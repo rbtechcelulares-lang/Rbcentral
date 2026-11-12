@@ -40,6 +40,7 @@ const SISTEMA = [
   '- Avisar o cliente de uma OS que JÁ está concluída/pronta: use os_aviso_pronto (o texto vem do sistema de OS). Não escreva você a mensagem de pronto e não use os_avisar_cliente para isso.',
   '- Link de acompanhamento da OS: use só o campo link_acompanhamento que vem em os_ver ou os_listar. Se o dono pedir só o link, responda com ele. Se vier null ou vazio, diga que essa OS não tem link de acompanhamento e repita em uma frase o que diz situacao_do_link (o sistema não manda o campo, ou manda vazio), e que isso se resolve no sistema de OS (prompt docs/PROMPT-LINK-ACOMPANHAMENTO.md). Nunca invente nem monte um link.',
   '- CRM do WhatsApp (whatsapp_crm e whatsapp_conversa): para perguntas sobre as conversas do WhatsApp da loja ("quem está esperando resposta?", "quem pediu iPhone 13?", "o que a Maria falou?"). O CRM tem só quem quer comprar iPhone; quem vende aparelho ou peça para a loja, clientes de reparo e outros assuntos ficam de fora, e para eles você não sugere nem prepara mensagem por conta própria (só se o dono pedir com todas as letras). Liste uma linha por cliente com nome, interesse, etapa e o que fazer. Para responder um cliente, leia a conversa antes, escreva a resposta como a loja e use whatsapp_enviar com o número dele.',
+  '- Pedidos de peças aos fornecedores: a lista é da Central (pecas_listar_pedidos; quando você lista, a tela mostra os pedidos com botões de um toque para perguntar o preço, pedir o envio e marcar que chegou, então responda curto). Para adicionar use peca_pedido_adicionar (peça com cor e detalhes, aparelho, fornecedor e OS se o dono disse); se o fornecedor não estiver cadastrado (fornecedores_listar), peça o WhatsApp dele. Para perguntar o preço ou pedir o envio, use peca_fornecedor_mensagem (tipo cotar ou pedir): aparece um cartão de um toque e o status muda sozinho quando sai. Quando o fornecedor responder (preço, prazo) ou a peça chegar, use peca_pedido_atualizar.',
   '- Por que os clientes não fecharam ("por que estou perdendo venda?", "relatório de perdas"): use relatorio_perdas. 1ª linha: conversão e o motivo nº 1. Depois **Motivos** (um por linha: motivo · quantidade · % dos perdidos · valor, com um exemplo curto depois de " — "), **Onde perdemos** (aparelhos e origem do site, se houver), **Tempo de resposta** (quem comprou x quem perdeu, em minutos ou horas) e **O que fazer** com no máximo 3 ações concretas tiradas dos números (ex.: responder mais rápido, rever o preço do iPhone 13, oferecer parcelamento). Se houver perdidos ainda sem motivo, diga quantos.',
   '- Follow-up do funil ("quem eu preciso cobrar?", "quem fechou e não buscou?"): use whatsapp_crm com o filtro da situação (loja_sem_responder, cliente_sumiu, nao_buscou). Mensagem de follow-up: leia a conversa antes, retome o que foi combinado (aparelho, valor, dia), curta e sem pressão, uma por cliente.',
   '- Nunca mande em massa: no máximo 5 mensagens por pedido, uma por pessoa e escrita para ela. Se o dono pedir para mandar para muitos clientes (promoção, lista), explique em uma frase que isso arrisca bloquear o WhatsApp da loja e ofereça mandar para até 5 de cada vez. Não invente dados nem números. Depois diga em uma frase qual botão tocar, conforme o aviso que a ferramenta devolver ("Confirmar" ou "Enviar no WhatsApp").',
@@ -104,6 +105,12 @@ module.exports = async (req, res) => {
             acoes.push({ tipo: 'whatsapp', titulo: 'WhatsApp para ' + p.nome, linhas, link, whatsapp: true });
             return { type: 'tool_result', tool_use_id: b.id, content: JSON.stringify({ pronto: true, para: p.nome, aviso: 'Apareceu na tela o botão "Enviar no WhatsApp". Ainda não foi enviado: o dono toca no botão e envia no WhatsApp.' }) };
           }
+          if (b.name === 'peca_fornecedor_mensagem') { // cartão de um toque para o fornecedor (como a mensagem para cliente)
+            if (acoes.filter((a) => a.whatsapp).length >= 5) throw new Error('limite de 5 mensagens por pedido');
+            const card = await f.cartaoFornecedor(dados.pedido, dados.tipo, dados.mensagem);
+            acoes.push(card);
+            return { type: 'tool_result', tool_use_id: b.id, content: JSON.stringify({ pronto: true, titulo: card.titulo, aviso: card.token ? 'Ainda NÃO foi enviado: o dono toca em "Confirmar" e a mensagem sai pelo WhatsApp da loja.' : 'Apareceu o botão "Enviar no WhatsApp"; ainda não foi enviado.' }) };
+          }
           if (b.name === 'os_aviso_pronto') { // texto do próprio sistema de OS; sai pelo sistema depois do Confirmar
             const card = await f.prepararAvisoPronto(dados.os_id);
             acoes.push(card);
@@ -118,6 +125,8 @@ module.exports = async (req, res) => {
           const saida = await f.lerFerramenta(b.name, dados);
           // lista de aparelhos: a tela mostra junto o painel com botões (vitrine, topo, catálogo, editar)
           if (b.name === 'site_listar_aparelhos' && !acoes.some((a) => a.tipo === 'catalogo')) acoes.push({ tipo: 'catalogo', busca: String(dados.busca || '').slice(0, 60), filtro: dados.so_vitrine ? 'vitrine' : '' });
+          // pedidos de peças: a tela mostra a lista com os botões de um toque para o fornecedor
+          if (b.name === 'pecas_listar_pedidos' && !acoes.some((a) => a.tipo === 'pecas')) acoes.push({ tipo: 'pecas', status: dados.status || 'abertos' });
           return { type: 'tool_result', tool_use_id: b.id, content: JSON.stringify(saida).slice(0, 30000) };
         } catch (e) {
           return { type: 'tool_result', tool_use_id: b.id, content: 'erro: ' + e.message, is_error: true };

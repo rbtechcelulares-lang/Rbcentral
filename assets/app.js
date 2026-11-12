@@ -227,7 +227,7 @@
   async function carregarAvisos() {
     if (!token) return;
     try {
-      const d = await chamar('avisos');
+      const d = await chamar('painel?rota=avisos');
       avisosPendentes = Array.isArray(d.avisos) ? d.avisos : [];
     } catch (e) { return; }
     // um aviso pendente na lista some do cartão da conversa só depois que for resolvido
@@ -254,7 +254,7 @@
     };
     marcar('enviando', acao === 'enviar' ? 'Enviando…' : 'Descartando…');
     try {
-      const d = await chamar('avisos', { acao, id });
+      const d = await chamar('painel?rota=avisos', { acao, id });
       if (acao === 'descartar') marcar('descartado', 'Descartado: o cliente não recebeu.');
       else if (d.link) { marcar('enviado', 'O envio automático está desligado: abra o WhatsApp para mandar.', d.link); window.open(d.link, '_blank', 'noopener'); }
       else marcar('enviado', 'Enviado para o cliente pelo WhatsApp da loja.');
@@ -321,7 +321,7 @@
   async function carregarCatalogo(forcar) {
     if (CAT.carregando) return CAT.carregando;
     if (CAT.lista && !forcar && Date.now() - CAT.em < 60000) return null;
-    CAT.carregando = chamar('catalogo').then((d) => {
+    CAT.carregando = chamar('painel?rota=catalogo').then((d) => {
       CAT.erro = d.motivo || '';
       CAT.lista = Array.isArray(d.aparelhos) ? d.aparelhos : [];
       if (Array.isArray(d.cores)) CAT.cores = d.cores;
@@ -478,7 +478,7 @@
     if ($('#catalogo').hidden) $('#catalogo').hidden = false;
     desenharPainelCatalogo();
     try {
-      const d = await chamar('catalogo', { alteracoes: alteracoesPendentes(), publicar: false });
+      const d = await chamar('painel?rota=catalogo', { alteracoes: alteracoesPendentes(), publicar: false });
       PAINEL.revisao = { linhas: d.linhas };
     } catch (e) { PAINEL.revisao = { erro: e.message }; }
     desenharPainelCatalogo();
@@ -490,7 +490,7 @@
   async function publicarCatalogo() {
     PAINEL.publicando = true; desenharPainelCatalogo();
     try {
-      const d = await chamar('catalogo', { alteracoes: alteracoesPendentes(), publicar: true });
+      const d = await chamar('painel?rota=catalogo', { alteracoes: alteracoesPendentes(), publicar: true });
       pend = new Map(); novos = []; tirar = new Set(); salvarPend();
       PAINEL.revisao = null; PAINEL.publicando = false;
       nota('📱 Publicado no site (atualiza em cerca de 1 minuto):\n' + (d.feito || []).join('\n'));
@@ -566,6 +566,98 @@
   $('#cat-busca').addEventListener('input', (e) => { PAINEL.busca = e.target.value; PAINEL.revisao = null; desenharPainelCatalogo(); });
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#catalogo').hidden) fecharCatalogo(); });
 
+  // ---------- Pedidos de peças: lista na conversa com botões de um toque para o fornecedor ----------
+  const PEC = { lista: null, fornecedores: [], em: 0, carregando: null, erro: '', novo: false };
+  const PEC_STATUS = { a_pedir: 'A pedir', cotando: 'Esperando o preço', pedido: 'Pedido ao fornecedor', chegou: 'Chegou', cancelado: 'Cancelado' };
+  async function carregarPecas(forcar) {
+    if (PEC.carregando) return PEC.carregando;
+    if (PEC.lista && !forcar && Date.now() - PEC.em < 30000) return null;
+    PEC.carregando = chamar('painel?rota=pecas&status=abertos').then((d) => {
+      PEC.erro = d.motivo || '';
+      PEC.lista = Array.isArray(d.pedidos) ? d.pedidos : [];
+      PEC.fornecedores = Array.isArray(d.fornecedores) ? d.fornecedores : [];
+      PEC.em = Date.now();
+    }).catch((e) => { PEC.erro = e.message; PEC.lista = PEC.lista || []; }).finally(() => { PEC.carregando = null; atualizarPecas(); });
+    return PEC.carregando;
+  }
+  function linhaPeca(p) {
+    const forn = p.fornecedor ? esc(p.fornecedor) + (p.fornecedor_whatsapp ? '' : ' <span class="muted">(sem WhatsApp)</span>') : '<span class="muted">sem fornecedor</span>';
+    const podeMandar = p.fornecedor && p.fornecedor_whatsapp;
+    return '<div class="pc-linha st-' + esc(p.status) + '" data-pc="' + esc(p.id) + '">' +
+      '<div class="pc-topo"><b>#' + esc(p.numero) + ' · ' + esc((p.quantidade > 1 ? p.quantidade + 'x ' : '') + p.peca) + '</b><span class="pc-st">' + esc(PEC_STATUS[p.status] || p.status) + '</span></div>' +
+      '<div class="pc-sub">' + [p.aparelho ? esc(p.aparelho) : '', forn, p.os_numero ? 'OS #' + esc(p.os_numero) : '', p.valor ? reais(p.valor) : '', p.previsao ? 'chega ' + esc(String(p.previsao).split('-').reverse().slice(0, 2).join('/')) : ''].filter(Boolean).join(' · ') + '</div>' +
+      '<div class="cat-onde">' +
+        '<button type="button" class="cat-tg" data-pc-msg="cotar"' + (podeMandar ? '' : ' disabled title="Cadastre o WhatsApp do fornecedor"') + '>💲 Perguntar preço</button>' +
+        '<button type="button" class="cat-tg" data-pc-msg="pedir"' + (podeMandar ? '' : ' disabled title="Cadastre o WhatsApp do fornecedor"') + '>📦 Pedir envio</button>' +
+        '<button type="button" class="cat-tg" data-pc-st="chegou">✅ Chegou</button></div>' +
+    '</div>';
+  }
+  function formPeca() {
+    return '<form class="cat-form pc-form">' +
+      '<label class="cat-campo"><span>Peça</span><input name="peca" required placeholder="Tampa traseira azul"></label>' +
+      '<label class="cat-campo"><span>Aparelho</span><input name="aparelho" placeholder="iPhone 12 Pro"></label>' +
+      '<label class="cat-campo"><span>Fornecedor</span><input name="fornecedor" list="pc-fornecedores" placeholder="nome"></label>' +
+      '<label class="cat-campo"><span>WhatsApp do fornecedor (se for novo)</span><input name="fornecedor_whatsapp" inputmode="tel" placeholder="48 99999-9999"></label>' +
+      '<label class="cat-campo"><span>Quantidade</span><input name="quantidade" inputmode="numeric" value="1"></label>' +
+      '<label class="cat-campo"><span>Nº da OS</span><input name="os_numero" placeholder="opcional"></label>' +
+      '<div class="botoes"><button class="btn btn-ouro" type="submit">Adicionar à lista</button><button type="button" class="btn-mini" data-pc-cancelar>Cancelar</button></div>' +
+      '<p class="erro" data-pc-erro hidden></p>' +
+      '<datalist id="pc-fornecedores">' + PEC.fornecedores.map((f) => '<option value="' + esc(f.nome) + '">').join('') + '</datalist></form>';
+  }
+  function conteudoCartaoPecas() {
+    if (!PEC.lista) { carregarPecas(); return '<h4>🔧 Pedidos de peças</h4><div class="muted">' + (PEC.erro ? esc(PEC.erro) : 'Carregando…') + '</div>'; }
+    return '<h4>🔧 Pedidos de peças · ' + PEC.lista.length + (PEC.lista.length === 1 ? ' aberto' : ' abertos') + '</h4>' +
+      (PEC.erro ? '<div class="muted">' + esc(PEC.erro) + '</div>' : '') +
+      (PEC.lista.length ? '<div class="cat-lista">' + PEC.lista.map(linhaPeca).join('') + '</div>' : (PEC.erro ? '' : '<div class="muted">Nenhum pedido aberto.</div>')) +
+      (PEC.novo ? formPeca() : '<div class="botoes"><button type="button" class="btn-mini" data-pc-novo>＋ Novo pedido</button><button type="button" class="btn-mini" data-pc-atualizar>↻ Atualizar</button></div>');
+  }
+  const cartaoPecas = (it, k) => '<div class="acao pc-card" data-pc-k="' + k + '">' + conteudoCartaoPecas() + '</div>';
+  function atualizarPecas() {
+    document.querySelectorAll('#conversa [data-pc-k]').forEach((el) => { el.innerHTML = conteudoCartaoPecas(); });
+  }
+  // o cartão de mensagem que volta do servidor entra na conversa como as mensagens para cliente
+  function empurrarCartao(a) {
+    const conv = conversaAtual();
+    conv.itens.push(a.tipo === 'whatsapp' ? { tipo: 'zap', titulo: a.titulo, linhas: a.linhas, link: a.link }
+      : { tipo: 'acao', token: a.token, titulo: a.titulo, linhas: a.linhas, em: Date.now(), link: a.link });
+    guardar(conv); desenhar();
+  }
+  $('#conversa').addEventListener('click', async (e) => {
+    const t = e.target;
+    if (t.closest('[data-pc-novo]')) { PEC.novo = true; return atualizarPecas(); }
+    if (t.closest('[data-pc-cancelar]')) { PEC.novo = false; return atualizarPecas(); }
+    if (t.closest('[data-pc-atualizar]')) return carregarPecas(true);
+    const linha = t.closest('[data-pc]');
+    const msg = t.closest('[data-pc-msg]'), st = t.closest('[data-pc-st]');
+    if (!linha || (!msg && !st)) return;
+    const botao = msg || st;
+    botao.disabled = true;
+    try {
+      if (msg) {
+        const d = await chamar('painel?rota=pecas', { acao: 'mensagem', id: linha.dataset.pc, tipo: msg.dataset.pcMsg });
+        empurrarCartao(d.cartao);
+      } else {
+        const d = await chamar('painel?rota=pecas', { acao: 'status', id: linha.dataset.pc, status: st.dataset.pcSt });
+        nota('🔧 Pedido de peça #' + d.pedido.numero + ' (' + d.pedido.peca + '): ' + (PEC_STATUS[d.pedido.status] || d.pedido.status) + '.');
+        carregarPecas(true);
+      }
+    } catch (er) { nota('⚠️ ' + er.message); botao.disabled = false; }
+  });
+  $('#conversa').addEventListener('submit', async (e) => {
+    const f = e.target.closest('.pc-form');
+    if (!f) return;
+    e.preventDefault();
+    const erro = f.querySelector('[data-pc-erro]');
+    const dados = {};
+    ['peca', 'aparelho', 'fornecedor', 'fornecedor_whatsapp', 'quantidade', 'os_numero'].forEach((n) => { dados[n] = f.elements[n].value.trim(); });
+    try {
+      const d = await chamar('painel?rota=pecas', { acao: 'adicionar', dados });
+      PEC.novo = false;
+      nota('🔧 Pedido de peça #' + d.pedido.numero + ' adicionado: ' + d.pedido.peca + (d.pedido.aparelho ? ' · ' + d.pedido.aparelho : '') + (d.pedido.fornecedor ? ' · ' + d.pedido.fornecedor : '') + '.');
+      carregarPecas(true);
+    } catch (er) { erro.textContent = er.message; erro.hidden = false; }
+  });
+
   async function chamar(caminho, corpo) {
     const r = await fetch('api/' + caminho, {
       method: corpo ? 'POST' : 'GET',
@@ -626,6 +718,7 @@
         }
         if (it.tipo === 'aviso') return cartaoAviso(it, 'k' + k);
         if (it.tipo === 'catalogo') return cartaoCatalogo(it, k);
+        if (it.tipo === 'pecas') return cartaoPecas(it, k);
         if (it.tipo === 'zap') {
           const seguro = /^https:\/\/wa\.me\/\d+\?text=/.test(it.link || '') ? it.link : '';
           return '<div class="acao zap' + (it.estado ? ' ' + it.estado : '') + '" data-k="' + k + '"><h4>' + (it.estado === 'aberta' ? '✅ ' : '📲 ') + esc(it.titulo) + '</h4>' +
@@ -689,9 +782,11 @@
       novaResposta = { role: 'assistant', content: d.resposta };
       lista.push(novaResposta);
       (d.acoes || []).forEach((a) => lista.push(a.tipo === 'catalogo' ? { tipo: 'catalogo', busca: a.busca || '', filtro: a.filtro || '' }
+        : a.tipo === 'pecas' ? { tipo: 'pecas' }
         : a.tipo === 'whatsapp' ? { tipo: 'zap', titulo: a.titulo, linhas: a.linhas, link: a.link }
           : { tipo: 'acao', token: a.token, titulo: a.titulo, linhas: a.linhas, em: Date.now(), link: a.link }));
       if ((d.acoes || []).some((a) => a.tipo === 'catalogo')) carregarCatalogo(true);
+      if ((d.acoes || []).some((a) => a.tipo === 'pecas')) carregarPecas(true);
     } catch (e) {
       lista.push({ tipo: 'nota', content: '⚠️ ' + e.message });
     }
@@ -712,9 +807,11 @@
       it.resultado = Array.isArray(r.feito) ? r.feito.join('\n') : r.link_whatsapp ? (r.enviado ? 'Mensagem enviada.' : 'Abra para enviar: ' + r.link_whatsapp) : 'Feito.';
       nota('Confirmado e executado: ' + it.titulo, conv);
       if (r.aviso && r.aviso.id) conv.itens.push({ tipo: 'aviso', id: r.aviso.id, titulo: r.aviso.titulo, linhas: r.aviso.linhas });
-      (r.acoes || []).forEach((a) => conv.itens.push(a.tipo === 'whatsapp'
-        ? { tipo: 'zap', titulo: a.titulo, linhas: a.linhas, link: a.link }
-        : { tipo: 'acao', token: a.token, titulo: a.titulo, linhas: a.linhas, em: Date.now(), link: a.link }));
+      (r.acoes || []).forEach((a) => conv.itens.push(a.tipo === 'pecas' ? { tipo: 'pecas' }
+        : a.tipo === 'whatsapp' ? { tipo: 'zap', titulo: a.titulo, linhas: a.linhas, link: a.link }
+          : { tipo: 'acao', token: a.token, titulo: a.titulo, linhas: a.linhas, em: Date.now(), link: a.link }));
+      if ((r.acoes || []).some((a) => a.tipo === 'pecas')) carregarPecas(true);
+      if (/^(peca_|fornecedor_)/.test(it.nome || '') || /peça|fornecedor/i.test(it.titulo || '')) carregarPecas(true);
       if (r.aviso || r.acoes) { guardar(conv); if (conv === atual) desenhar(); carregarAvisos(); }
       if (r.link_whatsapp && !r.enviado) window.open(r.link_whatsapp, '_blank', 'noopener');
     } catch (e) {
@@ -1087,14 +1184,14 @@
     const busca = $('#crm-busca').value.trim();
     const outros = crmFiltro === 'outros';
     try {
-      const d = await chamar('crm?filtro=' + encodeURIComponent(outros ? 'todos' : crmFiltro) + '&tipo=' + (outros ? 'outros' : 'compra_iphone') + '&busca=' + encodeURIComponent(busca));
+      const d = await chamar('painel?rota=crm&filtro=' + encodeURIComponent(outros ? 'todos' : crmFiltro) + '&tipo=' + (outros ? 'outros' : 'compra_iphone') + '&busca=' + encodeURIComponent(busca));
       crmLista = Array.isArray(d.contatos) ? d.contatos : [];
       crmLendo = !!(analisar && d.ativo && !d.motivo && !crmEmLeitura); // uma leitura por vez (trocar de aba não dobra o gasto)
       desenharCrm(d);
       // a IA lê as conversas com mensagens novas, separa quem quer comprar iPhone e atualiza as fichas
       if (crmLendo) {
         crmEmLeitura = true;
-        const a = await chamar('crm', { acao: 'analisar' }).catch(() => ({}));
+        const a = await chamar('painel?rota=crm', { acao: 'analisar' }).catch(() => ({}));
         crmEmLeitura = false;
         crmLendo = false;
         if ($('#crm').hidden) return;
@@ -1116,7 +1213,7 @@
     const ul = $('#crm-diag');
     ul.hidden = false; ul.innerHTML = '<li class="muted">Conferindo…</li>';
     try {
-      const d = await chamar('crm', { acao: 'diagnostico' });
+      const d = await chamar('painel?rota=crm', { acao: 'diagnostico' });
       ul.innerHTML = (d.itens || []).map((i) => '<li class="' + (i.ok ? 'ok' : 'falta') + '">' + (i.ok ? '✅ ' : '❌ ') + esc(i.texto) + '</li>').join('') +
         '<li class="muted">Só entram mensagens novas, a partir de quando a leitura foi ligada. Para testar, mande uma mensagem de outro celular para o WhatsApp da loja.</li>';
     } catch (er) { ul.innerHTML = '<li class="falta">❌ ' + esc(er.message) + '</li>'; }
@@ -1137,7 +1234,7 @@
       const b = $('#crm-ligar');
       b.disabled = true; b.textContent = 'Ligando…';
       try {
-        const d = await chamar('crm', { acao: 'ligar' });
+        const d = await chamar('painel?rota=crm', { acao: 'ligar' });
         b.textContent = d.atualizado ? '✅ Leitura do WhatsApp já estava ligada (atualizada)' : '✅ Leitura do WhatsApp ligada: as mensagens novas vão chegar aqui';
       } catch (er) { b.textContent = 'Tentar de novo: ' + er.message; }
       b.disabled = false;
@@ -1160,7 +1257,7 @@
       if (!box.hidden) { box.hidden = true; return; }
       box.hidden = false; box.innerHTML = '<p class="muted">Carregando…</p>';
       try {
-        const d = await chamar('crm', { acao: 'conversa', numero });
+        const d = await chamar('painel?rota=crm', { acao: 'conversa', numero });
         const msgs = (d && d.mensagens) || [];
         box.innerHTML = msgs.length ? msgs.map((m) => '<div class="crm-msg ' + (m.de_mim ? 'loja' : 'cliente') + '"><span>' + fmt(m.texto) + '</span><small>' + esc(quando(m.criado)) + '</small></div>').join('') : '<p class="muted">Sem mensagens guardadas.</p>';
         box.scrollTop = box.scrollHeight;

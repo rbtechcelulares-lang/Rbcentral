@@ -272,3 +272,15 @@ body { background: #000; }
 .cat-revisao .botoes { display: flex; gap: 8px; }
 .cat-revisao .btn[disabled] { opacity: .5; }
 #cat-rodape { position: sticky; bottom: 0; }
+
+/* ---------- Pedidos de peças (cartão na conversa) ---------- */
+.pc-card { gap: 8px; }
+.pc-linha { display: grid; gap: 6px; padding: 9px 10px; border: 1px solid var(--borda); border-radius: 12px; background: rgba(255,255,255,.02); }
+.pc-topo { display: flex; align-items: baseline; gap: 8px; font-size: 14px; }
+.pc-topo b { min-width: 0; }
+.pc-st { margin-left: auto; flex: none; font-size: 11.5px; font-weight: 800; border-radius: 999px; padding: 2px 9px; background: rgba(245,197,66,.15); color: var(--ouro); }
+.pc-linha.st-cotando .pc-st { background: rgba(255,106,0,.15); color: #ff9a4d; }
+.pc-linha.st-pedido .pc-st { background: rgba(47,191,113,.12); color: #7fd8a5; }
+.pc-sub { font-size: 12.5px; color: var(--apagado); }
+.pc-card .cat-tg[disabled] { opacity: .4; cursor: not-allowed; }
+.pc-form { margin-top: 4px; }

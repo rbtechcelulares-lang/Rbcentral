@@ -641,3 +641,151 @@ end;
 $$;
 revoke all on function public.central_wa_relatorio_perdas(text, integer) from public;
 grant execute on function public.central_wa_relatorio_perdas(text, integer) to anon, authenticated;
+
+-- ---------------------------------------------------------------------------------------------
+-- Pedidos de peças aos fornecedores (a lista da Central) e os fornecedores com o WhatsApp deles.
+-- status: a_pedir · cotando (perguntou o preço) · pedido (pediu para enviar) · chegou · cancelado
+create table if not exists public.central_fornecedores (
+  id text primary key check (char_length(id) between 1 and 40),
+  nome text not null check (char_length(nome) between 1 and 80),
+  whatsapp text check (whatsapp ~ '^[0-9]{12,13}$'),
+  observacoes text check (char_length(observacoes) <= 300),
+  criado timestamptz not null default now()
+);
+create unique index if not exists central_fornecedores_nome_idx on public.central_fornecedores (lower(nome));
+create table if not exists public.central_pecas (
+  id text primary key check (char_length(id) between 1 and 40),
+  numero bigint generated always as identity,
+  peca text not null check (char_length(peca) between 1 and 120),
+  aparelho text check (char_length(aparelho) <= 120),
+  quantidade integer not null default 1 check (quantidade between 1 and 99),
+  fornecedor_id text references public.central_fornecedores (id) on delete set null,
+  os_numero text check (char_length(os_numero) <= 20),
+  cliente text check (char_length(cliente) <= 80),
+  status text not null default 'a_pedir' check (status in ('a_pedir', 'cotando', 'pedido', 'chegou', 'cancelado')),
+  valor numeric check (valor >= 0),
+  previsao date,
+  observacoes text check (char_length(observacoes) <= 300),
+  criado timestamptz not null default now(),
+  atualizado timestamptz not null default now()
+);
+create index if not exists central_pecas_status_idx on public.central_pecas (status, atualizado desc);
+alter table public.central_fornecedores enable row level security;
+alter table public.central_pecas enable row level security;
+revoke all on public.central_fornecedores from anon, authenticated;
+revoke all on public.central_pecas from anon, authenticated;
+
+-- Cadastra ou atualiza um fornecedor (pelo id, ou pelo nome sem diferença de maiúsculas)
+create or replace function public.central_fornecedor_salvar(chave text, p_dados jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v central_fornecedores;
+begin
+  perform painel_checar(chave);
+  select * into v from central_fornecedores where id = p_dados->>'id' or lower(nome) = lower(trim(p_dados->>'nome')) limit 1;
+  if v.id is null then
+    insert into central_fornecedores (id, nome, whatsapp, observacoes)
+    values (p_dados->>'novo_id', trim(p_dados->>'nome'), nullif(p_dados->>'whatsapp', ''), nullif(p_dados->>'observacoes', ''))
+    returning * into v;
+  else
+    update central_fornecedores set
+      nome = case when v.id = p_dados->>'id' then coalesce(nullif(trim(p_dados->>'nome'), ''), nome) else nome end,
+      whatsapp = coalesce(nullif(p_dados->>'whatsapp', ''), whatsapp),
+      observacoes = coalesce(nullif(p_dados->>'observacoes', ''), observacoes)
+    where id = v.id returning * into v;
+  end if;
+  return to_jsonb(v);
+end;
+$$;
+revoke all on function public.central_fornecedor_salvar(text, jsonb) from public;
+grant execute on function public.central_fornecedor_salvar(text, jsonb) to anon, authenticated;
+
+create or replace function public.central_fornecedores_listar(chave text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform painel_checar(chave);
+  return coalesce((select jsonb_agg(to_jsonb(f) order by lower(f.nome)) from central_fornecedores f), '[]'::jsonb);
+end;
+$$;
+revoke all on function public.central_fornecedores_listar(text) from public;
+grant execute on function public.central_fornecedores_listar(text) to anon, authenticated;
+
+-- Cria (sem id existente) ou atualiza um pedido de peça; só mexe nos campos enviados
+create or replace function public.central_peca_salvar(chave text, p_dados jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v central_pecas;
+  v_prev date;
+begin
+  perform painel_checar(chave);
+  begin
+    if (p_dados->>'previsao') ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' then v_prev := (p_dados->>'previsao')::date; end if;
+  exception when others then v_prev := null;
+  end;
+  select * into v from central_pecas where id = p_dados->>'id' or (p_dados ? 'numero' and numero::text = p_dados->>'numero') limit 1;
+  if v.id is null and coalesce(p_dados->>'novo_id', '') = '' then raise exception 'pedido de peça não encontrado'; end if;
+  if v.id is null then
+    insert into central_pecas (id, peca, aparelho, quantidade, fornecedor_id, os_numero, cliente, status, valor, previsao, observacoes)
+    values (p_dados->>'novo_id', trim(p_dados->>'peca'), nullif(p_dados->>'aparelho', ''), coalesce((p_dados->>'quantidade')::int, 1),
+      nullif(p_dados->>'fornecedor_id', ''), nullif(p_dados->>'os_numero', ''), nullif(p_dados->>'cliente', ''),
+      coalesce(nullif(p_dados->>'status', ''), 'a_pedir'), (p_dados->>'valor')::numeric, v_prev, nullif(p_dados->>'observacoes', ''))
+    returning * into v;
+  else
+    update central_pecas set
+      peca = case when p_dados ? 'peca' then trim(p_dados->>'peca') else peca end,
+      aparelho = case when p_dados ? 'aparelho' then nullif(p_dados->>'aparelho', '') else aparelho end,
+      quantidade = case when p_dados ? 'quantidade' then (p_dados->>'quantidade')::int else quantidade end,
+      fornecedor_id = case when p_dados ? 'fornecedor_id' then nullif(p_dados->>'fornecedor_id', '') else fornecedor_id end,
+      os_numero = case when p_dados ? 'os_numero' then nullif(p_dados->>'os_numero', '') else os_numero end,
+      status = case when p_dados ? 'status' then p_dados->>'status' else status end,
+      valor = case when p_dados ? 'valor' then (p_dados->>'valor')::numeric else valor end,
+      previsao = case when p_dados ? 'previsao' then v_prev else previsao end,
+      observacoes = case when p_dados ? 'observacoes' then nullif(p_dados->>'observacoes', '') else observacoes end,
+      atualizado = now()
+    where id = v.id returning * into v;
+  end if;
+  return to_jsonb(v) || jsonb_build_object('fornecedor', (select jsonb_build_object('id', f.id, 'nome', f.nome, 'whatsapp', f.whatsapp) from central_fornecedores f where f.id = v.fornecedor_id));
+end;
+$$;
+revoke all on function public.central_peca_salvar(text, jsonb) from public;
+grant execute on function public.central_peca_salvar(text, jsonb) to anon, authenticated;
+
+-- Lista os pedidos: p_status = 'abertos' (a pedir, cotando, pedido) | 'todos' | um status; p_busca na peça, aparelho, OS e fornecedor
+create or replace function public.central_pecas_listar(chave text, p_status text, p_busca text, p_limite integer)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform painel_checar(chave);
+  return coalesce((
+    select jsonb_agg(y.x order by y.ordem, y.atualizado desc)
+    from (
+      select to_jsonb(p) || jsonb_build_object('fornecedor', case when f.id is null then null else jsonb_build_object('id', f.id, 'nome', f.nome, 'whatsapp', f.whatsapp) end) as x,
+        array_position(array['a_pedir', 'cotando', 'pedido', 'chegou', 'cancelado'], p.status) as ordem, p.atualizado
+      from central_pecas p left join central_fornecedores f on f.id = p.fornecedor_id
+      where (coalesce(p_status, 'abertos') = 'todos'
+          or (coalesce(p_status, 'abertos') = 'abertos' and p.status in ('a_pedir', 'cotando', 'pedido'))
+          or p.status = p_status)
+        and (coalesce(p_busca, '') = '' or concat_ws(' ', p.peca, p.aparelho, p.os_numero, p.cliente, f.nome, p.numero::text) ilike '%' || p_busca || '%')
+      order by array_position(array['a_pedir', 'cotando', 'pedido', 'chegou', 'cancelado'], p.status), p.atualizado desc
+      limit least(greatest(coalesce(p_limite, 50), 1), 100)
+    ) y(x, ordem, atualizado)
+  ), '[]'::jsonb);
+end;
+$$;
+revoke all on function public.central_pecas_listar(text, text, text, integer) from public;
+grant execute on function public.central_pecas_listar(text, text, text, integer) to anon, authenticated;

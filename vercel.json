@@ -4,11 +4,41 @@
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store" },
-        { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "Referrer-Policy", "value": "no-referrer" }
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        }
       ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/os-status",
+      "destination": "/api/evento?rota=os-status"
+    },
+    {
+      "source": "/api/avisos",
+      "destination": "/api/painel?rota=avisos"
+    },
+    {
+      "source": "/api/crm",
+      "destination": "/api/painel?rota=crm"
+    },
+    {
+      "source": "/api/catalogo",
+      "destination": "/api/painel?rota=catalogo"
     }
   ]
 }

@@ -111,3 +111,11 @@ Para isso, abra o Claude Code no repositório do sistema e use o prompt de
 - **Chaves:** nenhuma chave vai para o navegador; todas ficam nas variáveis da Vercel.
 - **Registro:** cada ação confirmada fica no log da Vercel (Logs › procure `rb-central acao`).
 - **Buscadores:** a página não aparece no Google (`noindex`).
+
+## Funções na Vercel (plano grátis: no máximo 12)
+
+A Central usa 9: `chat`, `confirmar`, `conversas`, `evento`, `login`, `painel`, `status`, `transcrever` e
+`whatsapp-webhook`. As telas do dono ficam todas em `/api/painel?rota=avisos|crm|catalogo|pecas`
+(código em `lib/rotas/`), e o aviso de status de OS entra por `/api/evento`. Os endereços antigos
+(`/api/os-status`, `/api/avisos`, `/api/crm`, `/api/catalogo`) continuam funcionando pelo `vercel.json`,
+então o sistema de OS não precisa mudar nada.

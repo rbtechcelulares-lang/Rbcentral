@@ -48,7 +48,10 @@
       ['me-dia', 'Relatório', 'Relatório do dia', ['relatorio_do_dia']]] },
     { id: 'pecas', p: [0, -0.98, -0.34], rotulo: 'Peças', sistema: 'os', pedido: 'Pedidos de peças aos fornecedores', subs: [
       ['pc-pedidos', 'Pedidos', 'Pedidos de peças aos fornecedores', ['pecas_listar_pedidos']],
-      ['pc-atraso', 'Atrasadas', 'Quais pedidos de peças estão atrasados?', []]] },
+      ['pc-novo', 'Novo pedido', 'Quero adicionar um pedido de peça ao fornecedor', ['peca_pedido_adicionar']],
+      ['pc-preco', 'Cotar', 'Quero perguntar o preço de uma peça ao fornecedor', ['peca_fornecedor_mensagem']],
+      ['pc-chegou', 'Chegou', 'Chegou uma peça, quero dar baixa no pedido', ['peca_pedido_atualizar']],
+      ['pc-fornec', 'Fornecedores', 'Quais fornecedores eu tenho cadastrados?', ['fornecedores_listar', 'fornecedor_cadastrar']]] },
     { id: 'whatsapp', p: [0.7, 0.5, -0.2], rotulo: 'WhatsApp', sistema: 'zap', pedido: 'Quem está esperando resposta no WhatsApp?', subs: [
       ['wa-enviar', 'Enviar', 'Quero mandar uma mensagem de WhatsApp para um cliente', ['whatsapp_enviar']],
       ['wa-follow', 'Follow-up', 'Quem eu preciso cobrar no WhatsApp?', []],
