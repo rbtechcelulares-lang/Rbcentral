@@ -16,7 +16,11 @@ module.exports = async (req, res) => {
     if (req.method !== 'POST') return res.status(405).json({ erro: 'Use GET ou POST.' });
     const b = req.body || {};
     if (b.acao === 'conversa') return res.status(200).json(await crm.conversa(b.numero, 40));
-    if (b.acao === 'analisar') return res.status(200).json({ analisados: await crm.analisarPendentes(6) });
+    if (b.acao === 'analisar') {
+      // primeiro as conversas com mensagem nova; sobrando vez, o motivo de quem não fechou
+      const n = await crm.analisarPendentes(6);
+      return res.status(200).json({ analisados: n + (n < 6 ? await crm.analisarPerdas(Math.min(4, 6 - n)).catch(() => 0) : 0) });
+    }
     if (b.acao === 'ligar') return res.status(200).json(await crm.ligarWebhook());
     if (b.acao === 'diagnostico') return res.status(200).json(await crm.diagnostico());
     return res.status(400).json({ erro: 'Ação desconhecida.' });

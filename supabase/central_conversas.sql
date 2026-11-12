@@ -225,6 +225,11 @@ alter table public.central_wa_contatos add column if not exists sessao text chec
 alter table public.central_wa_contatos add column if not exists retirada_em date;
 alter table public.central_wa_contatos add column if not exists venda_em timestamptz;
 alter table public.central_wa_contatos add column if not exists etapa_fixa boolean not null default false;
+-- por que não fechou (a IA classifica quem foi perdido): motivo, detalhe curto e se o cliente disse (certo) ou é dedução (provavel)
+alter table public.central_wa_contatos add column if not exists motivo_perda text check (motivo_perda in ('preco', 'pagamento', 'troca', 'estoque', 'aparelho', 'confianca', 'concorrente', 'demora_loja', 'entrega', 'desistiu', 'sumiu', 'outro'));
+alter table public.central_wa_contatos add column if not exists motivo_detalhe text check (char_length(motivo_detalhe) <= 160);
+alter table public.central_wa_contatos add column if not exists motivo_certeza text check (motivo_certeza in ('certo', 'provavel'));
+alter table public.central_wa_contatos add column if not exists motivo_em timestamptz;
 -- etapa nova "fechado" (combinou a compra, falta pagar ou buscar)
 alter table public.central_wa_contatos drop constraint if exists central_wa_contatos_etapa_check;
 alter table public.central_wa_contatos add constraint central_wa_contatos_etapa_check
@@ -332,6 +337,7 @@ begin
     from (
       select c.numero, c.nome, c.primeiro_contato, c.ultimo_contato, c.ultima_msg, c.ultima_de, c.msgs_novas, c.tipo, c.etapa, c.etapa_fixa,
         c.interesse, c.resumo, c.proxima_acao, c.valor, c.analisado, c.retirada_em, c.venda_em, c.sessao is not null as veio_do_site,
+        c.motivo_perda, c.motivo_detalhe, c.motivo_certeza,
         central_wa_situacao(c) as situacao
       from central_wa_contatos c
       where (coalesce(p_tipo, 'compra_iphone') = 'todos'
@@ -340,6 +346,7 @@ begin
         and (coalesce(p_filtro, 'todos') = 'todos'
           or (p_filtro = 'sem_resposta' and c.ultima_de = 'cliente')
           or (p_filtro = 'para_analisar' and c.msgs_novas > 0)
+          or (p_filtro = 'perda_sem_motivo' and c.motivo_perda is null and c.msgs_novas = 0 and central_wa_situacao(c) = 'perdido')
           or c.etapa = p_filtro
           or central_wa_situacao(c) = p_filtro)
         and (coalesce(p_busca, '') = ''
@@ -399,6 +406,7 @@ begin
     resumo = left(nullif(p_dados->>'resumo', ''), 600),
     proxima_acao = case when p_dados->>'tipo' is null or p_dados->>'tipo' = 'compra_iphone' then left(nullif(p_dados->>'proxima_acao', ''), 200) end,
     valor = case when (p_dados->>'valor') ~ '^[0-9]+(\.[0-9]+)?$' and (p_dados->>'valor')::numeric > 0 then (p_dados->>'valor')::numeric else null end,
+    motivo_perda = null, motivo_detalhe = null, motivo_certeza = null, motivo_em = null,
     msgs_novas = 0,
     analisado = now()
   where numero = p_numero;
@@ -491,6 +499,7 @@ begin
   from (
     select c.numero, c.nome, c.ultimo_contato, c.primeiro_contato, c.ultima_msg, c.ultima_de, c.msgs_novas, c.tipo, c.etapa, c.etapa_fixa,
       c.interesse, c.resumo, c.proxima_acao, c.valor, c.retirada_em, c.venda_em, c.codigo, c.sessao,
+      c.motivo_perda, c.motivo_detalhe, c.motivo_certeza,
       central_wa_situacao(c) as situacao
     from central_wa_contatos c
     where (c.tipo = 'compra_iphone' or (c.tipo is null and c.sessao is not null))
@@ -548,3 +557,87 @@ end;
 $$;
 revoke all on function public.painel_funil_whatsapp(text, integer) from public;
 grant execute on function public.painel_funil_whatsapp(text, integer) to anon, authenticated;
+
+-- A IA guarda por que o cliente não fechou
+create or replace function public.central_wa_salvar_motivo(chave text, p_numero text, p_dados jsonb)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform painel_checar(chave);
+  if coalesce(p_dados->>'motivo', '') not in ('preco', 'pagamento', 'troca', 'estoque', 'aparelho', 'confianca', 'concorrente', 'demora_loja', 'entrega', 'desistiu', 'sumiu', 'outro') then raise exception 'motivo inválido'; end if;
+  update central_wa_contatos set
+    motivo_perda = p_dados->>'motivo',
+    motivo_detalhe = left(nullif(p_dados->>'detalhe', ''), 160),
+    motivo_certeza = case when p_dados->>'certeza' = 'certo' then 'certo' else 'provavel' end,
+    motivo_em = now()
+  where numero = p_numero;
+end;
+$$;
+revoke all on function public.central_wa_salvar_motivo(text, text, jsonb) from public;
+grant execute on function public.central_wa_salvar_motivo(text, text, jsonb) to anon, authenticated;
+
+-- Relatório de por que os clientes de iPhone não fecharam (últimos p_dias): motivos com exemplos, aparelhos,
+-- de onde vieram, tempo até a primeira resposta da loja (quem comprou x quem perdeu) e valor que ficou na mesa
+create or replace function public.central_wa_relatorio_perdas(chave text, p_dias integer default 30)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  dias integer := least(greatest(coalesce(p_dias, 30), 1), 90);
+  r jsonb;
+  v_origem jsonb := '[]'::jsonb;
+begin
+  perform painel_checar(chave);
+  with rel as (
+    select c.numero, c.nome, c.interesse, c.valor, central_wa_situacao(c) as situacao, c.motivo_perda as motivo,
+      c.motivo_detalhe as detalhe, c.motivo_certeza as certeza, c.sessao,
+      (select extract(epoch from (
+          (select min(m2.criado) from central_wa_mensagens m2 where m2.numero = c.numero and m2.de_mim and m2.criado > t.t0) - t.t0)) / 60
+       from (select min(m1.criado) as t0 from central_wa_mensagens m1 where m1.numero = c.numero and not m1.de_mim) t) as resp_min
+    from central_wa_contatos c
+    where c.tipo = 'compra_iphone' and c.ultimo_contato > now() - make_interval(days => dias)
+  )
+  select jsonb_build_object(
+    'dias', dias,
+    'conversas', (select count(*) from rel),
+    'compraram', (select count(*) from rel where situacao = 'comprou'),
+    'perdidos', (select count(*) from rel where situacao = 'perdido'),
+    'em_aberto', (select count(*) from rel where situacao not in ('comprou', 'perdido')),
+    'sem_motivo', (select count(*) from rel where situacao = 'perdido' and motivo is null),
+    'conversao_pct', (select case when count(*) filter (where situacao in ('comprou', 'perdido')) = 0 then null
+        else round(100.0 * count(*) filter (where situacao = 'comprou') / count(*) filter (where situacao in ('comprou', 'perdido'))) end from rel),
+    'valor_perdido', (select coalesce(sum(valor), 0) from rel where situacao = 'perdido' and valor > 0),
+    'motivos', (select coalesce(jsonb_agg(m order by m.qtd desc), '[]'::jsonb) from (
+        select g.motivo, count(*) as qtd, count(*) filter (where g.certeza = 'certo') as certos,
+          coalesce(sum(g.valor) filter (where g.valor > 0), 0) as valor,
+          (select jsonb_agg(jsonb_build_object('nome', e.nome, 'numero', e.numero, 'interesse', e.interesse, 'detalhe', e.detalhe))
+             from (select * from rel x where x.situacao = 'perdido' and x.motivo = g.motivo order by (x.certeza = 'certo') desc limit 3) e) as exemplos
+        from rel g where g.situacao = 'perdido' and g.motivo is not null group by g.motivo) m),
+    'aparelhos', (select coalesce(jsonb_agg(a order by a.perdidos desc, a.compraram desc), '[]'::jsonb) from (
+        select min(interesse) as aparelho, count(*) filter (where situacao = 'perdido') as perdidos, count(*) filter (where situacao = 'comprou') as compraram
+        from rel where interesse is not null and situacao in ('comprou', 'perdido') group by lower(interesse)
+        order by count(*) filter (where situacao = 'perdido') desc limit 6) a),
+    'primeira_resposta_min', jsonb_build_object(
+        'compraram', (select round(percentile_cont(0.5) within group (order by resp_min)::numeric) from rel where situacao = 'comprou' and resp_min is not null),
+        'perdidos', (select round(percentile_cont(0.5) within group (order by resp_min)::numeric) from rel where situacao = 'perdido' and resp_min is not null))
+  ) into r;
+  if to_regclass('public.eventos') is not null then
+    execute $q$
+      select coalesce(jsonb_agg(o order by o.total desc), '[]'::jsonb) from (
+        select coalesce((select v.origem from eventos v where v.sessao = c.sessao and v.tipo = 'visita' order by v.criado_em limit 1), 'direto') as origem,
+          count(*) as total, count(*) filter (where central_wa_situacao(c) = 'comprou') as compraram, count(*) filter (where central_wa_situacao(c) = 'perdido') as perdidos
+        from central_wa_contatos c
+        where c.tipo = 'compra_iphone' and c.sessao is not null and c.ultimo_contato > now() - make_interval(days => $1)
+        group by 1) o
+    $q$ into v_origem using dias;
+  end if;
+  return r || jsonb_build_object('origem_site', v_origem, 'gerado_em', now());
+end;
+$$;
+revoke all on function public.central_wa_relatorio_perdas(text, integer) from public;
+grant execute on function public.central_wa_relatorio_perdas(text, integer) to anon, authenticated;

@@ -45,7 +45,8 @@ Toda chamada vem com o cabeçalho `Authorization: Bearer <SAAS_API_TOKEN>`.
 | GET | `/os` | `?status=&desde=AAAA-MM-DD&busca=&limite=30` | `{ "os": [OS, ...] }` |
 | GET | `/os/:id` | `:id` = id ou número da OS | `{ "os": OS }` |
 | POST | `/os` | `{ "cliente": {"nome", "whatsapp"}, "aparelho": {"marca", "modelo"}, "defeito", "relato", "valor": número ou null }` | `{ "os": OS }` |
-| PATCH | `/os/:id` | `{ "status": "<um de status_os>" }` | `{ "os": OS }` |
+| PATCH | `/os/:id` | `{ "status": "<um de status_os>" }` | `{ "os": OS }` e, ao concluir, `"comando": { "acao": "avisar_cliente", "mensagem": "..." }` |
+| POST | `/os/:id/aviso-pronto` | `{}` (OS já concluída) | `{ "os": OS, "comando": { "acao": "avisar_cliente", "mensagem": "..." } }` (não envia nada) |
 | POST | `/os/:id/editar` | `{ "alterar": { "<campo de campos_os>": valor, ... } }` | `{ "os": OS }` (ver **Editar OS** abaixo) |
 | POST | `/os/:id/pagamento` | `{ "valor": número, "forma": "<uma de formas_pagamento>" }` | `{ "os": OS }` (com `pago: true`) |
 | POST | `/os/:id/avisar` | `{ "mensagem": "texto" }` | `{ "enviado": true }` se o sistema enviou pelo WhatsApp dele, ou `{ "enviado": false, "link_whatsapp": "https://wa.me/55...?text=..." }` |
@@ -114,7 +115,12 @@ Status e pagamento não passam por aqui (têm rotas próprias); senha ou padrão
 nunca entram em `campos_os`. Campo fora da lista ou valor inválido: `400 {"erro": "..."}` sem mudar
 nada. Prompt para o sistema: `docs/PROMPT-EDITAR-OS.md`.
 
-**OS** = `{ "id", "loja", "numero", "cliente": {"nome", "whatsapp"}, "aparelho": {"marca", "modelo"}, "defeito", "relato", "status", "valor", "pago", "criado_em", "atualizado_em" }`
+**Aviso do próprio sistema:** quando a resposta traz `comando` com `"acao": "avisar_cliente"`, a Central
+usa `comando.mensagem` como texto do aviso ao cliente (no lugar do aviso que ela montaria), mostra ao
+dono e, quando ele confirma, chama `POST /os/:id/avisar` com `{ "mensagem": comando.mensagem }`. Para
+avisar uma OS que já está concluída, a Central pede o texto em `POST /os/:id/aviso-pronto`.
+
+**OS** = `{ "id", "loja", "numero", "link_acompanhamento" (ou null), "cliente": {"nome", "whatsapp"}, "aparelho": {"marca", "modelo"}, "defeito", "relato", "status", "valor", "pago", "criado_em", "atualizado_em" }`
 
 Exemplo: `GET /os?status=Pronto` → `{ "loja": "rbtechcelulares", "os": [{ "id": "…", "loja": "rbtechcelulares", "numero": 42, … }] }`
 
