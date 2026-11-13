@@ -46,6 +46,7 @@ Ele **não** mexe nas configurações do sistema de OS nem da página do site.
 | `CENTRAL_MSG_OS_PRONTA` | **Opcional.** Texto do aviso de OS concluída/pronta, com `{nome}`, `{aparelho}`, `{numero}` e `{valor}` (`\n` = nova linha) |
 | `CENTRAL_AVISO_STATUS` | **Opcional.** `0` desliga os avisos de mudança de status de OS |
 | `CENTRAL_EQUIPE` | **Equipe no WhatsApp.** `Nome:número com DDD`, várias pessoas separadas por vírgula (ex.: `Nizael:5548999999999`). Fica aqui e não no código porque o repositório é público |
+| `CENTRAL_PESSOAL` | **Contatos pessoais (família).** Mesmo formato, com o parentesco entre parênteses (ex.: `Fulana (esposa):5548999999999`). A IA manda mensagem pessoal para eles quando o dono pede ("manda pra minha esposa que chego às 8"), sempre com o Confirmar, e essas conversas não entram no CRM |
 
 As variáveis de cada sistema são independentes: com só as do site, ele já funciona para o
 site. O sistema de OS entra quando a API dele estiver pronta.
@@ -83,7 +84,7 @@ loja, com a `ZAPI_OMNI_KEY`; sem ela, abre o WhatsApp com a mensagem pronta).
 A Central lê as conversas do WhatsApp da loja e monta um CRM: a Z-API Omni manda cada mensagem para
 `POST /api/whatsapp-webhook` (protegido por senha), a Central guarda a conversa no Supabase do site
 por 90 dias e o Claude Haiku preenche a ficha de cada cliente (etapa, interesse, resumo, próximo
-passo e valor). Grupos e a equipe (`CENTRAL_EQUIPE`) ficam de fora.
+passo e valor). Grupos, a equipe (`CENTRAL_EQUIPE`) e a família (`CENTRAL_PESSOAL`) ficam de fora.
 
 - **Ligar:** com a Z-API Omni ligada (`ZAPI_OMNI_KEY` e `ZAPI_OMNI_CANAL`) e o SQL rodado, abra o 📇 na
   Central e toque em **Ligar a leitura do WhatsApp**: a Central cadastra o webhook na Z-API.

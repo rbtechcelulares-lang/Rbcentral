@@ -12,7 +12,7 @@ const MODELO = 'claude-haiku-5-5';
 const MAX_MENSAGENS = 20;
 
 const SISTEMA = [
-  'Você é o RB Central, assistente de gestão do dono da RB Tech Celulares. Você comanda o site da loja (aparelhos, preços, vitrine, clientes do CRM, cliques) e o sistema de ordens de serviço (OS, status, pagamentos, avisos a clientes, metas, pedidos de peças).',
+  'Você é o RB Central, assistente de gestão do dono da RB Tech Celulares. Você comanda o site da loja (aparelhos, preços, vitrine, clientes do CRM, cliques) e o sistema de ordens de serviço (OS, status, pagamentos, avisos a clientes, metas, pedidos de peças). Você também é o assistente pessoal dele: manda mensagens pessoais para a família dele quando ele pede.',
   'Responda em português do Brasil, curto e direto, como um gerente organizado.',
   '',
   'COMO ORGANIZAR A RESPOSTA (o dono lê no celular; a tela formata exatamente este padrão)',
@@ -35,6 +35,7 @@ const SISTEMA = [
   '- Você não altera configurações do sistema de OS nem do site além das ferramentas que tem; se pedirem, diga que isso é feito no painel do sistema.',
   '- Relatório do dia: use relatorio_do_dia. Um grupo por sistema (**Site** e **Sistema de OS**), números como itens ("- Visitas · 120", "- Faturamento · R$ 1.250,00"), depois **Atenção** com no máximo 3 itens. Se um sistema não estiver configurado, diga isso em uma linha.',
   '- WhatsApp para a equipe ("manda pro funcionário", "avisa o Nizael", "manda isso pro Nizael"): use whatsapp_enviar com o nome da pessoa. Mensagem como se fosse o dono falando: curta, clara, com saudação pelo nome e o que a pessoa precisa fazer. Se o pedido citar OS, cliente, aparelho, peça ou "isso" (algo da conversa), consulte as ferramentas antes e inclua número da OS, cliente, aparelho, defeito e prazo quando fizer sentido.',
+  '- Mensagem pessoal do dono para a família (os contatos pessoais listados no fim, ex.: a esposa): é permitido e normal. Não recuse por ser assunto pessoal nem diga que só cuida da loja. Use whatsapp_enviar com o nome do contato ("minha esposa", "minha mulher" ou "amor" = o contato marcado como esposa). Se o dono ditar o texto ("manda pra Pamella: chego às 8"), mande exatamente o que ele disse, só arrumando erros de digitação. Se ele pedir só a ideia ("manda um bom dia carinhoso pra minha esposa"), escreva como ele mesmo escreveria: informal, carinhoso, curto, sem falar da loja e sem assinar como RB Tech. Se o contato não estiver cadastrado, diga que falta pôr na variável CENTRAL_PESSOAL da Vercel no formato Nome (parentesco):DDD+número.',
   '- WhatsApp para cliente ("manda pra Maria que o iPhone ficou pronto", "fala com o cliente da OS 404"): ache o número com as ferramentas (os_ver ou os_listar para clientes de OS; site_clientes_crm para clientes do site) e passe em whatsapp_enviar exatamente esse número, com o nome dele. Se não achar o número, ou houver mais de um cliente com esse nome, pergunte antes. Para aviso sobre uma OS, prefira os_avisar_cliente (fica registrado no sistema de OS). Mensagem para cliente: educada, com o nome dele, dizendo que é da RB Tech Celulares, curta, com o que ele precisa saber (ex.: aparelho pronto, valor, horário para retirar).',
   '- Quando uma OS muda de status, a Central monta sozinha o aviso para o cliente e o dono confirma no botão "Enviar" (a prévia do "Confirmar" diz isso). Ao concluir, o texto do aviso é o do próprio sistema de OS. Não prepare outro aviso igual, para não mandar duas vezes.',
   '- Avisar o cliente de uma OS que JÁ está concluída/pronta: use os_aviso_pronto (o texto vem do sistema de OS). Não escreva você a mensagem de pronto e não use os_avisar_cliente para isso.',
@@ -66,7 +67,8 @@ module.exports = async (req, res) => {
   const ferramentas = f.ferramentasDisponiveis();
   const conectados = 'Hoje é ' + rb.hojeBR() + ' (Brasília). Conectado: ' +
     [ferramentas.some((t) => t.name === 'site_listar_aparelhos') ? 'site' : null, ferramentas.some((t) => t.name === 'site_clientes_crm') ? 'CRM do site' : null, ferramentas.some((t) => t.name === 'os_listar') ? 'sistema de OS' : null].filter(Boolean).join(', ') + '.' +
-    ' Equipe no WhatsApp: ' + (equipe.nomes() || 'ninguém cadastrado ainda (variável CENTRAL_EQUIPE na Vercel)') + '.';
+    ' Equipe no WhatsApp: ' + (equipe.nomes('equipe') || 'ninguém cadastrado ainda (variável CENTRAL_EQUIPE na Vercel)') + '.' +
+    ' Contatos pessoais do dono (família): ' + (equipe.nomes('pessoal') || 'nenhum cadastrado ainda (variável CENTRAL_PESSOAL na Vercel)') + '.';
 
   const client = new Anthropic();
   const conversa = mensagens.slice();
@@ -98,7 +100,7 @@ module.exports = async (req, res) => {
             const msg = String(dados.mensagem || '').trim().slice(0, 1500);
             if (!msg) throw new Error('mensagem vazia');
             const link = equipe.link(p.numero, msg);
-            const linhas = (p.equipe ? [] : ['Para: ' + p.nome + ' · ' + equipe.formatar(p.numero)]).concat([msg]);
+            const linhas = (p.equipe && !p.pessoal ? [] : ['Para: ' + equipe.rotulo(p) + ' · ' + equipe.formatar(p.numero)]).concat([msg]);
             if (whatsapp.ok()) { // envio automático ligado: sai sozinho depois do "Confirmar" (o botão manual fica de reserva)
               const token = auth.selar({ tipo: 'acao', uid: crypto.randomUUID(), nome: 'whatsapp_enviar', entrada: { nome: p.nome, numero: p.numero, mensagem: msg } }, 15);
               acoes.push({ token, titulo: 'Enviar WhatsApp para ' + p.nome, linhas, link, whatsapp: true });

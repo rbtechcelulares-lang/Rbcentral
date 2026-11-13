@@ -69,7 +69,7 @@ module.exports = async (req, res) => {
   fd.append('language', 'pt');
   fd.append('temperature', '0');
   fd.append('response_format', 'json');
-  fd.append('prompt', VOCABULARIO + (nomes ? ' Equipe: ' + nomes + '.' : ''));
+  fd.append('prompt', VOCABULARIO + (nomes ? ' Nomes: ' + nomes + '.' : ''));
   try {
     const r = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', { method: 'POST', headers: { Authorization: 'Bearer ' + chave }, body: fd });
     const d = await r.json().catch(() => ({}));
