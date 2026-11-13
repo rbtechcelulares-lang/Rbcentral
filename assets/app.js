@@ -738,8 +738,8 @@
     let w = null;
     try {
       if (ehComputador()) {
-        // na faixa livre à esquerda da Central (a mesma largura do CSS: clamp(420px, 34vw, 640px))
-        const faixa = Math.round(Math.min(Math.max(innerWidth * 0.34, 420), 640));
+        // na faixa livre à esquerda da Central (a mesma largura do CSS: clamp(380px, 34vw, 640px))
+        const faixa = Math.round(Math.min(Math.max(innerWidth * 0.34, 380), 640));
         const L = Math.max(380, faixa - 32), A = Math.round(L * 0.62) + 70, sx = screen.availLeft || 0, sy = screen.availTop || 0;
         w = window.open(url, 'rb-cameras', 'popup=yes,width=' + L + ',height=' + A + ',left=' + (sx + 16) + ',top=' + (sy + 150));
       } else w = window.open(url, '_blank');
