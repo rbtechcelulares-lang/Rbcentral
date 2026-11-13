@@ -792,3 +792,44 @@ end;
 $$;
 revoke all on function public.central_pecas_listar(text, text, text, integer) from public;
 grant execute on function public.central_pecas_listar(text, text, text, integer) to anon, authenticated;
+
+-- ---------------------------------------------------------------------------------------------
+-- Configurações guardadas pela Central (ex.: a autorização do Spotify, já criptografada pela Central).
+create table if not exists public.central_config (
+  nome text primary key check (char_length(nome) between 1 and 60),
+  valor text check (char_length(valor) <= 4000),
+  atualizado timestamptz not null default now()
+);
+alter table public.central_config enable row level security;
+revoke all on public.central_config from anon, authenticated;
+
+create or replace function public.central_config_ler(chave text, p_nome text)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform painel_checar(chave);
+  return (select c.valor from central_config c where c.nome = p_nome);
+end;
+$$;
+revoke all on function public.central_config_ler(text, text) from public;
+grant execute on function public.central_config_ler(text, text) to anon, authenticated;
+
+-- p_valor vazio apaga
+create or replace function public.central_config_salvar(chave text, p_nome text, p_valor text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform painel_checar(chave);
+  if coalesce(p_valor, '') = '' then delete from central_config where nome = p_nome; return; end if;
+  insert into central_config (nome, valor, atualizado) values (p_nome, p_valor, now())
+  on conflict (nome) do update set valor = excluded.valor, atualizado = now();
+end;
+$$;
+revoke all on function public.central_config_salvar(text, text, text) from public;
+grant execute on function public.central_config_salvar(text, text, text) to anon, authenticated;

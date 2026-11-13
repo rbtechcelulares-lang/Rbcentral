@@ -14,6 +14,7 @@ module.exports = async (req, res) => {
     sistema_os: saas.ok(),
     voz: !!String(process.env.GROQ_API_KEY || '').trim(), // microfone com transcrição Whisper no servidor
     whatsapp: whatsapp.ok(), // envio automático de WhatsApp (Z-API ou Meta)
-    crm_whatsapp: require('../lib/crm-whatsapp').ativo() // CRM das conversas do WhatsApp
+    crm_whatsapp: require('../lib/crm-whatsapp').ativo(), // CRM das conversas do WhatsApp
+    musica: require('../lib/spotify').configurado() // Spotify da loja (falta só conectar, se ainda não conectou)
   });
 };

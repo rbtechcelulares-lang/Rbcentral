@@ -57,6 +57,12 @@
       ['wa-follow', 'Follow-up', 'Quem eu preciso cobrar no WhatsApp?', []],
       ['wa-buscar', 'Não buscou', 'Quem fechou e não buscou o aparelho?', []],
       ['wa-perdas', 'Perdas', 'Por que os clientes não fecharam este mês?', ['relatorio_perdas']]] },
+    { id: 'musica', p: [0.32, 0.56, 0.52], rotulo: 'Música', sistema: 'musica', pedido: 'O que está tocando na loja?', subs: [
+      ['mu-tocar', 'Tocar', 'Toca a playlist da loja', ['musica_tocar']],
+      ['mu-pausar', 'Pausar', 'Pausa a música', ['musica_controlar']],
+      ['mu-proxima', 'Próxima', 'Pula para a próxima música', []],
+      ['mu-volume', 'Volume', 'Abaixa um pouco o volume da música', []],
+      ['mu-agora', 'Tocando', 'O que está tocando agora?', ['musica_status']]] },
     { id: 'vendas', p: [-0.4, -0.2, -0.82], rotulo: 'Vendas', sistema: 'os', pedido: 'Quais celulares tenho no estoque?', subs: [
       ['ve-vender', 'Vender', 'Quero registrar uma venda', ['venda_registrar']],
       ['ve-estoque', 'Estoque', 'Quais celulares tenho no estoque?', ['estoque_aparelhos']],
@@ -479,7 +485,7 @@
         est.alvoAlfa = est.modo === 'fundo' ? 0.35 : est.modo === 'login' ? 0.85 : 1;
       },
       // status: { site, crm, sistema_os } → acende/apaga os sistemas
-      status(s) { est.ligado = { site: !!(s && s.site), crm: !!(s && s.crm), os: !!(s && s.sistema_os), zap: !!(s && (s.whatsapp || s.crm_whatsapp)) }; },
+      status(s) { est.ligado = { site: !!(s && s.site), crm: !!(s && s.crm), os: !!(s && s.sistema_os), zap: !!(s && (s.whatsapp || s.crm_whatsapp)), musica: !!(s && s.musica) }; },
       pensando(sim) { est.pensando = !!sim; },
       // microfone ligado: o cérebro inteiro acende mais forte
       ouvindo(sim) { est.ouvindo = !!sim; },

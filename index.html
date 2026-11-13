@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/style.css?v=21">
+  <link rel="stylesheet" href="assets/style.css?v=22">
 </head>
 <body>
   <!-- Cérebro 3D: ocupa a tela toda, atrás de tudo -->
@@ -84,6 +84,13 @@
         <datalist id="cat-cores"></datalist>
       </div>
     </div>
+    <div class="hist" id="musica" hidden>
+      <div class="hist-fundo" data-fechar-musica></div>
+      <div class="hist-painel mus-painel" role="dialog" aria-label="Música da loja">
+        <div class="hist-topo"><b>♫ Música da loja</b><button type="button" class="btn-mini" data-fechar-musica aria-label="Fechar">✕</button></div>
+        <div id="mus-conteudo"></div>
+      </div>
+    </div>
     <div class="hist" id="avisos" hidden>
       <div class="hist-fundo" data-fechar-avisos></div>
       <div class="hist-painel" role="dialog" aria-label="Mensagens para confirmar">
@@ -94,6 +101,7 @@
     </div>
     <main class="conversa" id="conversa" aria-live="polite"></main>
     <p class="cb-dica" id="cb-dica">Arraste para girar · toque num sistema ou numa função para perguntar</p>
+    <div class="mini-player" id="mini-player" hidden></div>
     <form class="enviar" id="enviar">
       <textarea id="msg" rows="1" maxlength="2000" enterkeyhint="enter" placeholder="O que você precisa?"></textarea>
       <button type="button" class="btn-mic" id="mic" aria-label="Falar com o RB Central" aria-pressed="false">
@@ -103,7 +111,7 @@
     </form>
   </section>
 
-  <script src="assets/cerebro.js?v=13"></script>
-  <script src="assets/app.js?v=23"></script>
+  <script src="assets/cerebro.js?v=14"></script>
+  <script src="assets/app.js?v=24"></script>
 </body>
 </html>

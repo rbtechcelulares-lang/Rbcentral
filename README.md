@@ -119,3 +119,17 @@ A Central usa 9: `chat`, `confirmar`, `conversas`, `evento`, `login`, `painel`, 
 (código em `lib/rotas/`), e o aviso de status de OS entra por `/api/evento`. Os endereços antigos
 (`/api/os-status`, `/api/avisos`, `/api/crm`, `/api/catalogo`) continuam funcionando pelo `vercel.json`,
 então o sistema de OS não precisa mudar nada.
+
+## Música da loja (Spotify)
+
+A Central controla o Spotify que está tocando na loja (computador, celular ou caixa de som com o
+Spotify aberto): tocar, pausar, próxima, volume, aparelho, playlists e busca, pelo mini player, pelo
+painel ♫ Música ou pedindo para a IA. Precisa de conta **Spotify Premium**.
+
+1. Em https://developer.spotify.com/dashboard, crie um app (Web API), com o Redirect URI
+   `https://rbcentral.vercel.app/api/spotify` (ou `{CENTRAL_URL}/api/spotify`).
+2. Na Vercel, coloque `SPOTIFY_CLIENT_ID` e `SPOTIFY_CLIENT_SECRET` e faça um novo deploy.
+3. Rode o SQL de novo (cria a tabela `central_config`) e toque em ♫ Música › Conectar Spotify.
+
+A autorização fica guardada no Supabase do site, criptografada com o segredo da Central. Usa a função
+`api/spotify` (a 10ª de 12 da Vercel grátis).

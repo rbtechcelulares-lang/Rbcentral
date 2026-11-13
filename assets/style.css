@@ -293,3 +293,39 @@ body { background: #000; }
 .crm-resp-botoes .btn { padding: 8px 18px; }
 .crm-resp-info { margin: 0; font-size: 12.5px; color: var(--ok); }
 .crm-resp-info.erro { color: var(--erro); }
+
+/* ---------- Música da loja (Spotify) ---------- */
+.con-mus { font: inherit; background: transparent; cursor: pointer; }
+.con-mus.on { color: var(--ouro); border-color: #5c4a1a; }
+.mini-player { display: flex; align-items: center; gap: 8px; margin: 0 16px 6px; padding: 6px 8px; border: 1px solid #5c4a1a; border-radius: 14px; background: rgba(23,20,10,.88); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.mp-capa { width: 36px; height: 36px; border-radius: 8px; object-fit: cover; flex: none; display: grid; place-items: center; background: #2b2620; color: var(--ouro); }
+.mp-info { flex: 1; min-width: 0; display: grid; text-align: left; background: transparent; border: 0; color: var(--texto); font: inherit; cursor: pointer; padding: 0; }
+.mp-info b, .mp-info span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mp-info b { font-size: 13.5px; }
+.mp-info span { font-size: 11.5px; color: var(--apagado); }
+.mp-bt { flex: none; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--borda); background: transparent; color: var(--texto); font-size: 15px; cursor: pointer; display: grid; place-items: center; }
+.mp-bt.mp-play { background: var(--ouro); color: #111; border-color: var(--ouro); }
+.mp-bt.on { color: var(--ouro); border-color: var(--ouro); }
+.mus-agora { display: flex; gap: 12px; align-items: center; }
+.mus-agora img { width: 84px; height: 84px; border-radius: 12px; object-fit: cover; flex: none; }
+.mus-agora div { display: grid; gap: 2px; min-width: 0; }
+.mus-agora b { font-size: 16px; }
+.mus-agora span { color: var(--apagado); font-size: 13.5px; }
+.mus-agora small { color: var(--apagado); font-size: 12px; }
+.mus-controles { display: flex; gap: 10px; justify-content: center; margin: 4px 0; }
+.mus-controles .mp-bt { width: 44px; height: 44px; font-size: 18px; }
+.mus-vol { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--apagado); }
+.mus-vol input { flex: 1; accent-color: var(--ouro); }
+.mus-h { margin: 8px 0 2px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--ouro); }
+.mus-aparelhos { display: flex; flex-wrap: wrap; gap: 6px; }
+.mus-busca { display: flex; gap: 6px; margin-top: 4px; }
+.mus-busca input { flex: 1; background: #0f0e0c; border: 1.5px solid var(--borda); color: var(--texto); border-radius: 10px; padding: 8px 10px; font: inherit; }
+.mus-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.mus-item { display: flex; align-items: center; gap: 8px; }
+.mus-item img, .mus-sem { width: 38px; height: 38px; border-radius: 6px; object-fit: cover; flex: none; display: grid; place-items: center; background: #2b2620; color: var(--ouro); }
+.mus-item div { flex: 1; min-width: 0; display: grid; }
+.mus-item b, .mus-item span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mus-item b { font-size: 13.5px; }
+.mus-item span { font-size: 12px; color: var(--apagado); }
+.mus-sair { align-self: flex-start; margin-top: 6px; }
+@media (max-width: 760px) { .mini-player { margin: 0 12px 6px; } }

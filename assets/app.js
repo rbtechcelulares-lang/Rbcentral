@@ -566,6 +566,144 @@
   $('#cat-busca').addEventListener('input', (e) => { PAINEL.busca = e.target.value; PAINEL.revisao = null; desenharPainelCatalogo(); });
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#catalogo').hidden) fecharCatalogo(); });
 
+  // ---------- Música da loja (Spotify): mini player acima da caixa de mensagem e painel ♫ ----------
+  const MUS = { e: null, configurado: false, erro: '', busca: null, playlists: null, ocupado: false, timer: 0 };
+  let retornoSpotify = '';
+  try {
+    const u = new URL(location.href);
+    retornoSpotify = u.searchParams.get('spotify') || '';
+    if (retornoSpotify) { u.searchParams.delete('spotify'); history.replaceState(null, '', u.pathname + u.search + u.hash); }
+  } catch (e) { /* ignora */ }
+  const tempoMus = (ms) => { const s = Math.floor((ms || 0) / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+
+  async function carregarMusica() {
+    if (!MUS.configurado) return;
+    try { MUS.e = await chamar('spotify'); MUS.erro = ''; } catch (e) { MUS.erro = e.message; }
+    desenharMini();
+    if (!$('#musica').hidden) desenharPainelMusica();
+  }
+  function iniciarMusica(configurado) {
+    MUS.configurado = !!configurado;
+    clearInterval(MUS.timer);
+    if (!MUS.configurado) { desenharMini(); return; }
+    carregarMusica();
+    // atualiza o que está tocando (mais rápido com o painel aberto); para quando a aba fica escondida
+    MUS.timer = setInterval(() => { if (!document.hidden && MUS.e && MUS.e.conectado) carregarMusica(); }, 12000);
+    if (retornoSpotify) {
+      const msg = { ok: '♫ Spotify conectado! Agora dá para controlar a música da loja por aqui ou pedindo para mim.', cancelado: 'Conexão com o Spotify cancelada.', expirou: 'O link do Spotify expirou. Toque em "Conectar Spotify" de novo.', erro: 'Não consegui conectar o Spotify. Confira o endereço de retorno no app do Spotify e tente de novo.' }[retornoSpotify] || '';
+      if (msg) nota(msg);
+      retornoSpotify = '';
+      abrirMusica();
+    }
+  }
+
+  function desenharMini() {
+    const el = $('#mini-player'), e = MUS.e;
+    const m = e && e.conectado && e.musica;
+    el.hidden = !m;
+    if (!m) return;
+    el.innerHTML = (m.capa ? '<img class="mp-capa" src="' + esc(m.capa) + '" alt="">' : '<span class="mp-capa">♫</span>') +
+      '<button type="button" class="mp-info" data-abrir-musica><b>' + esc(m.nome) + '</b><span>' + esc(m.artistas) + (e.aparelho ? ' · ' + esc(e.aparelho.nome) : '') + '</span></button>' +
+      '<button type="button" class="mp-bt" data-mus="anterior" aria-label="Anterior">⏮</button>' +
+      '<button type="button" class="mp-bt mp-play" data-mus="' + (e.tocando ? 'pausar' : 'play') + '" aria-label="' + (e.tocando ? 'Pausar' : 'Tocar') + '">' + (e.tocando ? '⏸' : '▶') + '</button>' +
+      '<button type="button" class="mp-bt" data-mus="proxima" aria-label="Próxima">⏭</button>';
+  }
+
+  function itemMus(x, tipo) {
+    return '<li class="mus-item">' + (x.capa ? '<img src="' + esc(x.capa) + '" alt="">' : '<span class="mus-sem">♫</span>') +
+      '<div><b>' + esc(x.nome) + '</b><span>' + esc(x.artistas || x.dono || (tipo === 'artista' ? 'Artista' : '')) + (x.musicas ? ' · ' + x.musicas + ' músicas' : '') + '</span></div>' +
+      '<button type="button" class="btn-mini" data-tocar="' + esc(x.uri) + '">▶</button>' +
+      (tipo === 'musica' ? '<button type="button" class="btn-mini" data-fila="' + esc(x.uri) + '" title="Pôr na fila">＋</button>' : '') + '</li>';
+  }
+
+  function desenharPainelMusica() {
+    const el = $('#mus-conteudo'), e = MUS.e;
+    if (!MUS.configurado) {
+      el.innerHTML = '<p class="hist-nota">Para controlar a música da loja por aqui, falta criar o app do Spotify e colocar <b>SPOTIFY_CLIENT_ID</b> e <b>SPOTIFY_CLIENT_SECRET</b> na Vercel (depois, um novo deploy).</p>';
+      return;
+    }
+    if (!e) { el.innerHTML = '<p class="muted">' + (MUS.erro ? esc(MUS.erro) : 'Carregando…') + '</p>'; return; }
+    if (!e.conectado) {
+      el.innerHTML = '<p class="hist-nota">Entre uma vez com a conta Spotify da loja (precisa ser Premium) para a Central controlar a música.</p>' +
+        '<button type="button" class="btn btn-ouro" data-mus-login>Conectar Spotify</button>' + (MUS.erro ? '<p class="erro">' + esc(MUS.erro) + '</p>' : '');
+      return;
+    }
+    const m = e.musica, ap = e.aparelho;
+    el.innerHTML =
+      (m ? '<div class="mus-agora">' + (m.capa ? '<img src="' + esc(m.capa) + '" alt="">' : '') + '<div><b>' + esc(m.nome) + '</b><span>' + esc(m.artistas) + '</span>' +
+          '<small>' + (e.tocando ? 'Tocando' : 'Pausado') + ' · ' + tempoMus(e.progresso) + ' / ' + tempoMus(m.duracao) + (ap ? ' · ' + esc(ap.nome) : '') + '</small></div></div>'
+        : '<p class="muted">Nada tocando agora. Abra o Spotify num aparelho da loja e escolha uma playlist aqui embaixo.</p>') +
+      '<div class="mus-controles"><button type="button" class="mp-bt' + (e.aleatorio ? ' on' : '') + '" data-mus="aleatorio" data-ligar="' + (!e.aleatorio) + '" title="Ordem aleatória">🔀</button>' +
+        '<button type="button" class="mp-bt" data-mus="anterior">⏮</button><button type="button" class="mp-bt mp-play" data-mus="' + (e.tocando ? 'pausar' : 'play') + '">' + (e.tocando ? '⏸' : '▶') + '</button><button type="button" class="mp-bt" data-mus="proxima">⏭</button></div>' +
+      (ap ? '<label class="mus-vol">🔊 <input type="range" min="0" max="100" step="5" value="' + (ap.volume == null ? 50 : ap.volume) + '" data-mus-vol> <span>' + (ap.volume == null ? '—' : ap.volume + '%') + '</span></label>' : '') +
+      (e.aparelhos && e.aparelhos.length ? '<h4 class="mus-h">Tocar em</h4><div class="mus-aparelhos">' + e.aparelhos.map((d) => '<button type="button" class="crm-aba' + (d.ativo ? ' on' : '') + '" data-mus-ap="' + esc(d.id) + '">' + ({ Computer: '💻 ', Smartphone: '📱 ', Speaker: '🔈 ', TV: '📺 ' }[d.tipo] || '🎵 ') + esc(d.nome) + '</button>').join('') + '</div>'
+        : '<p class="hist-nota">Nenhum aparelho com o Spotify aberto agora.</p>') +
+      '<form class="mus-busca" data-mus-busca><input type="search" placeholder="Procurar música, artista ou playlist…" value="' + esc((MUS.busca && MUS.busca.q) || '') + '"><button class="btn-mini" type="submit">Buscar</button></form>' +
+      (MUS.busca && MUS.busca.r ? ['musicas:Músicas:musica', 'artistas:Artistas:artista', 'playlists:Playlists:playlist'].map((g) => {
+        const [k, t, tipo] = g.split(':'), l = MUS.busca.r[k] || [];
+        return l.length ? '<h4 class="mus-h">' + t + '</h4><ul class="mus-lista">' + l.slice(0, 5).map((x) => itemMus(x, tipo)).join('') + '</ul>' : '';
+      }).join('') : '') +
+      '<h4 class="mus-h">Suas playlists</h4>' + (MUS.playlists ? (MUS.playlists.length ? '<ul class="mus-lista">' + MUS.playlists.map((x) => itemMus(x, 'playlist')).join('') + '</ul>' : '<p class="muted">Nenhuma playlist na conta.</p>') : '<p class="muted">Carregando…</p>') +
+      (MUS.erro ? '<p class="erro">' + esc(MUS.erro) + '</p>' : '') +
+      '<button type="button" class="btn-mini mus-sair" data-mus-sair>Desconectar o Spotify</button>';
+  }
+
+  function abrirMusica() {
+    $('#musica').hidden = false;
+    desenharPainelMusica();
+    carregarMusica();
+    if (!MUS.playlists && MUS.configurado) chamar('spotify', { acao: 'playlists' }).then((d) => { MUS.playlists = d.playlists || []; desenharPainelMusica(); }).catch(() => { MUS.playlists = []; });
+  }
+  const fecharMusica = () => { $('#musica').hidden = true; };
+
+  async function acaoMusica(corpo) {
+    if (MUS.ocupado) return;
+    MUS.ocupado = true;
+    try { await chamar('spotify', corpo); MUS.erro = ''; } catch (e) { MUS.erro = e.message; if ($('#musica').hidden) nota('♫ ' + e.message); }
+    MUS.ocupado = false;
+    if (cerebro) cerebro.acender(['musica_controlar']);
+    setTimeout(carregarMusica, 350); // o Spotify leva um instante para mudar o estado
+  }
+
+  function cliqueMusica(e) {
+    const t = e.target;
+    if (t.closest('[data-abrir-musica]')) { abrirMusica(); return true; }
+    const b = t.closest('[data-mus]');
+    if (b) { acaoMusica({ acao: 'comando', comando: b.dataset.mus, ligar: b.dataset.ligar === 'true' }); return true; }
+    const ap = t.closest('[data-mus-ap]');
+    if (ap) { acaoMusica({ acao: 'comando', comando: 'aparelho', aparelho: ap.dataset.musAp }); return true; }
+    const tc = t.closest('[data-tocar]'), fl = t.closest('[data-fila]');
+    if (tc || fl) { acaoMusica({ acao: 'tocar', uri: (tc || fl).dataset.tocar || (tc || fl).dataset.fila, fila: !!fl }); if (fl) nota('♫ Música adicionada na fila.'); return true; }
+    if (t.closest('[data-mus-login]')) {
+      chamar('spotify', { acao: 'login' }).then((d) => { location.href = d.url; }).catch((er) => { MUS.erro = er.message; desenharPainelMusica(); });
+      return true;
+    }
+    if (t.closest('[data-mus-sair]')) {
+      if (confirm('Desconectar o Spotify da Central?')) chamar('spotify', { acao: 'sair' }).then(() => { MUS.e = null; MUS.playlists = null; carregarMusica(); });
+      return true;
+    }
+    return false;
+  }
+  $('#mini-player').addEventListener('click', cliqueMusica);
+  $('#conexoes').addEventListener('click', cliqueMusica);
+  $('#musica').addEventListener('click', (e) => { if (e.target.closest('[data-fechar-musica]')) return fecharMusica(); cliqueMusica(e); });
+  $('#musica').addEventListener('change', (e) => {
+    const v = e.target.closest('[data-mus-vol]');
+    if (v) acaoMusica({ acao: 'comando', comando: 'volume', volume: Number(v.value) });
+  });
+  $('#musica').addEventListener('input', (e) => { const v = e.target.closest('[data-mus-vol]'); if (v) v.nextElementSibling.textContent = v.value + '%'; });
+  $('#musica').addEventListener('submit', async (e) => {
+    const f = e.target.closest('[data-mus-busca]');
+    if (!f) return;
+    e.preventDefault();
+    const q = f.querySelector('input').value.trim();
+    if (!q) return;
+    MUS.busca = { q, r: null }; desenharPainelMusica();
+    try { MUS.busca.r = await chamar('spotify', { acao: 'buscar', q }); } catch (er) { MUS.erro = er.message; }
+    desenharPainelMusica();
+  });
+  addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#musica').hidden) fecharMusica(); });
+
   // ---------- Pedidos de peças: lista na conversa com botões de um toque para o fornecedor ----------
   const PEC = { lista: null, fornecedores: [], em: 0, carregando: null, erro: '', novo: false };
   const PEC_STATUS = { a_pedir: 'A pedir', cotando: 'Esperando o preço', pedido: 'Pedido ao fornecedor', chegou: 'Chegou', cancelado: 'Cancelado' };
@@ -696,7 +834,10 @@
       if (cerebro) cerebro.status(s);
       zapAutomatico = !!s.whatsapp;
       $('#conexoes').innerHTML = [['IA', s.ia], ['Site', s.site], ['CRM', s.crm], ['OS', s.sistema_os], ['Zap', s.whatsapp]]
-        .map(([n, on]) => '<span class="con' + (on ? ' on' : '') + '">' + (on ? '● ' : '○ ') + n + '</span>').join('');
+        .map(([n, on]) => '<span class="con' + (on ? ' on' : '') + '">' + (on ? '● ' : '○ ') + n + '</span>').join('') +
+        // ♫ Música: abre o painel do Spotify (conectar, tocar, volume)
+        '<button type="button" class="con con-mus' + (s.musica ? ' on' : '') + '" data-abrir-musica>' + (s.musica ? '♫ ' : '○ ') + 'Música</button>';
+      iniciarMusica(s.musica);
     } catch (e) { /* mostrado ao usar */ }
     sincronizar(true);
     carregarAvisos();
@@ -779,6 +920,7 @@
     try {
       const d = await chamar('chat', { mensagens: historico(lista) });
       if (cerebro) cerebro.acender(d.usadas);
+      if ((d.usadas || []).some((u) => /^musica_/.test(u))) setTimeout(carregarMusica, 600); // a IA mexeu no som: atualiza o player
       novaResposta = { role: 'assistant', content: d.resposta };
       lista.push(novaResposta);
       (d.acoes || []).forEach((a) => lista.push(a.tipo === 'catalogo' ? { tipo: 'catalogo', busca: a.busca || '', filtro: a.filtro || '' }
