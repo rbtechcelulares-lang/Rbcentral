@@ -283,7 +283,8 @@
     // cérebro em destaque com a mensagem de boas-vindas: ele fica no espaço acima dela
     const app = $('#app'), prim = $('#conversa').firstElementChild;
     if (app.classList.contains('cb-foco') && !app.classList.contains('cb-manual') && prim) bottom = Math.min(bottom, prim.getBoundingClientRect().top);
-    return { top: topo.bottom, bottom };
+    const col = $('#app').getBoundingClientRect(); // coluna da Central (no PC fica à direita da faixa da câmera)
+    return { top: topo.bottom, bottom, left: col.left, right: col.right };
   };
   if (window.RBCerebro && $('#cerebro-fundo').getContext) {
     cerebro = RBCerebro.criar($('#cerebro-fundo'), { onClick: (a) => { focoManual = false; enviar(a.pedido); }, area: areaCerebro });
@@ -737,8 +738,10 @@
     let w = null;
     try {
       if (ehComputador()) {
-        const L = 680, A = 440, sx = screen.availLeft || 0, sy = screen.availTop || 0;
-        w = window.open(url, 'rb-cameras', 'popup=yes,width=' + L + ',height=' + A + ',left=' + Math.max(sx, sx + screen.availWidth - L - 24) + ',top=' + (sy + 70));
+        // na faixa livre à esquerda da Central (a mesma largura do CSS: clamp(420px, 34vw, 640px))
+        const faixa = Math.round(Math.min(Math.max(innerWidth * 0.34, 420), 640));
+        const L = Math.max(380, faixa - 32), A = Math.round(L * 0.62) + 70, sx = screen.availLeft || 0, sy = screen.availTop || 0;
+        w = window.open(url, 'rb-cameras', 'popup=yes,width=' + L + ',height=' + A + ',left=' + (sx + 16) + ',top=' + (sy + 150));
       } else w = window.open(url, '_blank');
       if (w) { try { w.opener = null; } catch (e) { /* ignora */ } }
     } catch (e) { w = null; }

@@ -208,8 +208,10 @@
     function alvoPosicao() {
       const a = (o.area && o.area()) || { top: 0, bottom: H };
       const top = Math.max(0, a.top || 0), bottom = Math.min(H, a.bottom || H), h = Math.max(120, bottom - top);
+      // no PC a coluna da Central pode estar deslocada (faixa livre à esquerda para a câmera): o cérebro acompanha
+      const esq = Math.max(0, a.left || 0), dir = Math.min(W, a.right || W);
       return {
-        cx: W / 2,
+        cx: dir > esq ? (esq + dir) / 2 : W / 2,
         cy: top + h * (est.modo === 'fundo' ? 0.5 : 0.46),
         esc: Math.min(W * (celular ? 0.38 : 0.3), h * 0.44)
       };
