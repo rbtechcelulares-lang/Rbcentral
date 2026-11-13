@@ -1159,8 +1159,12 @@
       (c.resumo ? '<div class="crm-resumo">' + esc(c.resumo) + '</div>' : (c.msgs_novas > 0 ? '<div class="crm-resumo muted">A IA ainda vai ler esta conversa…</div>' : '')) +
       (c.proxima_acao ? '<div class="crm-acao">➡️ ' + esc(c.proxima_acao) + '</div>' : '') +
       (c.ultima_msg ? '<div class="crm-ultima">' + (c.ultima_de === 'cliente' ? (comprador ? 'Cliente' : 'Contato') : 'Loja') + ': “' + esc(c.ultima_msg) + '”</div>' : '') +
-      '<div class="crm-botoes"><button type="button" class="btn-mini" data-crm-ver>Ver conversa</button>' + (comprador ? '<button type="button" class="btn-mini crm-responder" data-crm-responder>Responder com a IA</button>' : '') + '</div>' +
-      '<div class="crm-conversa" hidden></div></li>';
+      '<div class="crm-botoes"><button type="button" class="btn-mini" data-crm-ver>Ver conversa</button><button type="button" class="btn-mini crm-responder" data-crm-responder>Responder</button></div>' +
+      '<div class="crm-conversa" hidden></div>' +
+      // responder direto daqui: o dono escreve (ou pede sugestão à IA) e toca em Enviar
+      '<form class="crm-resp" hidden><textarea rows="2" maxlength="1500" placeholder="Escreva a resposta para ' + esc(c.nome || 'o cliente') + '…"></textarea>' +
+        '<div class="crm-resp-botoes"><button type="button" class="btn-mini" data-crm-sugerir>✨ Sugerir com a IA</button><button type="submit" class="btn btn-ouro">Enviar</button></div>' +
+        '<p class="crm-resp-info" hidden></p></form></li>';
   }
   function desenharCrm(d) {
     const ativo = !!(d && d.ativo);
@@ -1246,23 +1250,73 @@
     if (!item) return;
     const numero = item.dataset.numero;
     const c = crmLista.find((x) => x.numero === numero) || {};
+    const box = item.querySelector('.crm-conversa'), form = item.querySelector('.crm-resp');
     if (e.target.closest('[data-crm-responder]')) {
-      fecharCrm();
-      $('#msg').value = 'Leia a conversa de WhatsApp com ' + (c.nome || fone(numero)) + ' (' + numero + ') e prepare uma resposta para eu confirmar.';
-      crescer(); $('#msg').focus();
+      if (box.hidden) abrirConversaCrm(item, numero);
+      form.hidden = false;
+      form.querySelector('textarea').focus();
+      return;
+    }
+    if (e.target.closest('[data-crm-sugerir]')) {
+      const b = e.target.closest('[data-crm-sugerir]'), ta = form.querySelector('textarea');
+      b.disabled = true; b.textContent = '✨ Pensando…'; infoResposta(form, '');
+      try {
+        const d = await chamar('painel?rota=crm', { acao: 'sugerir', numero });
+        ta.value = d.sugestao || ''; ta.focus();
+        infoResposta(form, 'Sugestão da IA: confira e ajuste antes de enviar.');
+      } catch (er) { infoResposta(form, er.message, true); }
+      b.disabled = false; b.textContent = '✨ Sugerir com a IA';
       return;
     }
     if (e.target.closest('[data-crm-ver]')) {
-      const box = item.querySelector('.crm-conversa');
-      if (!box.hidden) { box.hidden = true; return; }
-      box.hidden = false; box.innerHTML = '<p class="muted">Carregando…</p>';
-      try {
-        const d = await chamar('painel?rota=crm', { acao: 'conversa', numero });
-        const msgs = (d && d.mensagens) || [];
-        box.innerHTML = msgs.length ? msgs.map((m) => '<div class="crm-msg ' + (m.de_mim ? 'loja' : 'cliente') + '"><span>' + fmt(m.texto) + '</span><small>' + esc(quando(m.criado)) + '</small></div>').join('') : '<p class="muted">Sem mensagens guardadas.</p>';
-        box.scrollTop = box.scrollHeight;
-      } catch (er) { box.innerHTML = '<p class="muted">' + esc(er.message) + '</p>'; }
+      if (!box.hidden) { box.hidden = true; form.hidden = true; return; }
+      abrirConversaCrm(item, numero);
     }
+  });
+  const bolhaCrm = (m) => '<div class="crm-msg ' + (m.de_mim ? 'loja' : 'cliente') + '"><span>' + fmt(m.texto) + '</span><small>' + esc(quando(m.criado)) + '</small></div>';
+  function infoResposta(form, t, erro) {
+    const p = form.querySelector('.crm-resp-info');
+    p.textContent = t; p.hidden = !t; p.classList.toggle('erro', !!erro);
+  }
+  async function abrirConversaCrm(item, numero) {
+    const box = item.querySelector('.crm-conversa');
+    item.querySelector('.crm-resp').hidden = false;
+    box.hidden = false; box.innerHTML = '<p class="muted">Carregando…</p>';
+    try {
+      const d = await chamar('painel?rota=crm', { acao: 'conversa', numero });
+      const msgs = (d && d.mensagens) || [];
+      box.innerHTML = msgs.length ? msgs.map(bolhaCrm).join('') : '<p class="muted">Sem mensagens guardadas.</p>';
+      box.scrollTop = box.scrollHeight;
+    } catch (er) { box.innerHTML = '<p class="muted">' + esc(er.message) + '</p>'; }
+  }
+  // Enviar a resposta: sai pelo WhatsApp da loja na hora (sem Z-API, abre o WhatsApp com o texto)
+  async function enviarRespostaCrm(form) {
+    const item = form.closest('.crm-item'), numero = item.dataset.numero, ta = form.querySelector('textarea');
+    const texto = ta.value.trim();
+    if (!texto) return infoResposta(form, 'Escreva a mensagem.', true);
+    const b = form.querySelector('button[type=submit]');
+    b.disabled = true; b.textContent = 'Enviando…'; infoResposta(form, '');
+    try {
+      const d = await chamar('painel?rota=crm', { acao: 'responder', numero, mensagem: texto });
+      if (d.link) { window.open(d.link, '_blank', 'noopener'); infoResposta(form, 'Abri o WhatsApp com a mensagem: toque em enviar lá.'); }
+      else {
+        const box = item.querySelector('.crm-conversa');
+        if (box.querySelector('p.muted')) box.innerHTML = '';
+        box.insertAdjacentHTML('beforeend', bolhaCrm(d.mensagem)); box.scrollTop = box.scrollHeight;
+        ta.value = '';
+        infoResposta(form, '✓ Enviado pelo WhatsApp da loja.');
+        const c = crmLista.find((x) => x.numero === numero);
+        if (c) { c.ultima_de = 'loja'; c.ultima_msg = texto; }
+        const esp = item.querySelector('.crm-esperando'); if (esp) esp.remove();
+      }
+    } catch (er) { infoResposta(form, er.message, true); }
+    b.disabled = false; b.textContent = 'Enviar';
+  }
+  $('#crm').addEventListener('submit', (e) => { const f = e.target.closest('.crm-resp'); if (!f) return; e.preventDefault(); enviarRespostaCrm(f); });
+  $('#crm').addEventListener('keydown', (e) => {
+    const f = e.target.closest('.crm-resp');
+    if (!f || e.key !== 'Enter' || e.isComposing) return;
+    if (e.ctrlKey || e.metaKey || (ehComputador() && !e.shiftKey && !e.altKey)) { e.preventDefault(); enviarRespostaCrm(f); }
   });
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#crm').hidden) fecharCrm(); });
 

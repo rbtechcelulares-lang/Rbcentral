@@ -300,6 +300,9 @@ begin
   insert into central_wa_contatos (numero, nome, primeiro_contato, ultimo_contato)
   values (p_numero, case when p_de_mim or trim(coalesce(p_nome, '')) ~ '^[0-9+ ()-]*$' then null else left(trim(p_nome), 80) end, p_quando, p_quando)
   on conflict (numero) do nothing;
+  -- mensagem da loja que a Central já guardou ao enviar e volta pelo webhook com outro id: não entra de novo
+  if p_de_mim and exists (select 1 from central_wa_mensagens m where m.numero = p_numero and m.de_mim and m.texto = left(p_texto, 4000)
+      and m.criado between p_quando - interval '3 minutes' and p_quando + interval '3 minutes') then return; end if;
   insert into central_wa_mensagens (id, numero, de_mim, texto, criado)
   values (p_id, p_numero, p_de_mim, left(p_texto, 4000), p_quando)
   on conflict (id) do nothing
