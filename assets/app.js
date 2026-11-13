@@ -275,7 +275,7 @@
   // cérebro: cada neurônio é uma aba de um sistema; tocar nele pede aquilo para a IA
   // Cérebro 3D em tela cheia (assets/cerebro.js). Sem conversa ele fica em destaque e dá para girar e tocar
   // nos sistemas; com conversa ele escurece no fundo. O botão 🧠 mostra o cérebro por cima da conversa.
-  let cerebro = null, focoManual = false;
+  let cerebro = null, focoManual = false, ultimoStatus = null;
   const areaCerebro = () => {
     if ($('#app').hidden) return { top: 0, bottom: $('.login-box').getBoundingClientRect().top }; // login: o cérebro fica em cima da caixa de senha
     const topo = $('.topo').getBoundingClientRect();
@@ -704,6 +704,229 @@
   });
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#musica').hidden) fecharMusica(); });
 
+  // ---------- Câmeras da loja: mini player com o site das câmeras (o link direto que a Emive passou) ----------
+  // O link fica guardado na Central, criptografado. O login e a senha das câmeras o dono digita na própria tela delas.
+  // Se o site das câmeras não deixar abrir dentro da Central, elas abrem numa janelinha separada (no celular, outra aba).
+  const CAM = { cfg: null, carregando: null, tela: '', grande: false, erro: '', rascunho: '', abriuJanela: false };
+  const camEl = () => $('#cameras');
+  const chavePosCam = () => 'rbcentral_cam_pos_' + (ehComputador() ? 'pc' : 'cel');
+
+  function carregarCameras() {
+    if (CAM.carregando) return CAM.carregando;
+    CAM.carregando = chamar('painel?rota=cameras').then((d) => { CAM.cfg = d; CAM.erro = ''; return d; }, (e) => { CAM.erro = e.message; return null; });
+    CAM.carregando.then(() => { CAM.carregando = null; atualizarChipCam(); });
+    return CAM.carregando;
+  }
+  function atualizarChipCam() {
+    const b = $('#conexoes [data-abrir-cameras]'), on = !!(CAM.cfg && CAM.cfg.configurado);
+    if (b) { b.classList.toggle('on', on); b.textContent = (on ? '📹 ' : '○ ') + 'Câmeras'; }
+    if (cerebro && ultimoStatus) cerebro.status(Object.assign({}, ultimoStatus, { cameras: on }));
+  }
+
+  // o site das câmeras dentro da Central; sem allow-top-navigation: ele não consegue tirar você da Central
+  function iframeCameras(doc, url) {
+    const f = doc.createElement('iframe');
+    f.src = url; f.title = 'Câmeras da loja';
+    f.setAttribute('allow', 'fullscreen; autoplay; picture-in-picture');
+    f.setAttribute('allowfullscreen', '');
+    f.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads');
+    return f;
+  }
+  // janela separada: no computador, uma janelinha no canto da tela; no celular, outra aba
+  function janelaCameras(url) {
+    let w = null;
+    try {
+      if (ehComputador()) {
+        const L = 680, A = 440, sx = screen.availLeft || 0, sy = screen.availTop || 0;
+        w = window.open(url, 'rb-cameras', 'popup=yes,width=' + L + ',height=' + A + ',left=' + Math.max(sx, sx + screen.availWidth - L - 24) + ',top=' + (sy + 70));
+      } else w = window.open(url, '_blank');
+      if (w) { try { w.opener = null; } catch (e) { /* ignora */ } }
+    } catch (e) { w = null; }
+    return !!w;
+  }
+
+  // opc: { grande, link (trocar o link), porCima (janela por cima de tudo), depois (sem toque do dono: não tenta abrir janela) }
+  function abrirCameras(opc) {
+    opc = opc || {};
+    if (opc.grande) CAM.grande = true;
+    const c = CAM.cfg;
+    if (!c) {
+      mostrarCameras('carregando');
+      carregarCameras().then(() => { if (CAM.tela === 'carregando') abrirCameras(Object.assign({}, opc, { depois: true })); });
+      return;
+    }
+    if (c.indisponivel || !c.configurado || opc.link) return mostrarCameras('link');
+    if (c.embutir === false) {
+      CAM.abriuJanela = !opc.depois && janelaCameras(c.url); // sem o toque do dono o navegador bloqueia: fica o botão
+      return mostrarCameras('janela');
+    }
+    if (opc.porCima && window.documentPictureInPicture) return camerasPorCima();
+    mostrarCameras('video');
+  }
+  function mostrarCameras(tela) {
+    CAM.tela = tela;
+    if (tela !== 'link') CAM.erro = CAM.cfg ? '' : CAM.erro;
+    camEl().hidden = false;
+    if (tela !== 'video') $('#cam-corpo').innerHTML = '';
+    desenharCameras(); // primeiro o tamanho (classes), depois a posição
+    posicionarCameras();
+  }
+  function fecharCameras() { camEl().hidden = true; $('#cam-corpo').innerHTML = ''; CAM.tela = ''; CAM.grande = false; }
+
+  function desenharCameras() {
+    const el = camEl(), corpo = $('#cam-corpo'), c = CAM.cfg || {}, tela = CAM.tela;
+    el.classList.toggle('grande', CAM.grande && tela === 'video');
+    el.classList.toggle('compacta', tela === 'janela');
+    const bt = (n) => $('#cam-topo [data-cam="' + n + '"]');
+    bt('porcima').hidden = !(window.documentPictureInPicture && tela === 'video');
+    bt('tamanho').hidden = tela !== 'video';
+    bt('tamanho').textContent = CAM.grande ? '⤡' : '⤢';
+    bt('tamanho').title = CAM.grande ? 'Diminuir' : 'Aumentar';
+    bt('janela').hidden = tela !== 'video';
+    bt('config').hidden = tela === 'link' || !c.configurado;
+    if (tela === 'video') {
+      if (corpo.querySelector('iframe')) return;
+      corpo.innerHTML = '';
+      corpo.append(iframeCameras(document, c.url));
+      corpo.insertAdjacentHTML('beforeend', '<div class="cam-pe"><span>' + esc(c.site) + (c.embutir === null ? ' · não deu para conferir se abre aqui' : '') + '</span>' +
+        '<button type="button" data-cam="janela">Não apareceu? Abrir em outra janela ↗</button></div>');
+      return;
+    }
+    if (tela === 'carregando') { corpo.innerHTML = '<p class="muted cam-msg">' + (CAM.erro ? esc(CAM.erro) : 'Carregando…') + '</p>'; return; }
+    if (tela === 'janela') {
+      corpo.innerHTML = '<div class="cam-janela"><p>' + (CAM.abriuJanela ? 'As câmeras abriram em outra janela.' : 'Toque para abrir as câmeras.') +
+        ' <span class="muted">' + esc(c.motivo || 'O site das câmeras não deixa abrir dentro da Central.') + '</span></p>' +
+        '<div class="botoes"><button type="button" class="btn btn-ouro" data-cam="janela">📹 ' + (CAM.abriuJanela ? 'Abrir de novo' : 'Abrir as câmeras') + ' ↗</button>' +
+        '<button type="button" class="btn-mini" data-cam="conferir">↻ Conferir de novo</button></div></div>';
+      return;
+    }
+    // tela === 'link': colar ou trocar o link
+    if (c.indisponivel) { corpo.innerHTML = '<p class="hist-nota cam-msg">' + esc(c.motivo || 'Câmeras indisponíveis.') + '</p>'; return; }
+    corpo.innerHTML = '<form class="cam-form" data-cam-form autocomplete="off">' +
+      '<p>Cole aqui o <b>link das câmeras</b> que a Emive passou (o endereço do site onde você entra com o seu acesso).</p>' +
+      '<input name="url" type="text" inputmode="url" spellcheck="false" autocapitalize="off" placeholder="https://…" value="' + esc(CAM.rascunho || c.url || '') + '">' +
+      (CAM.erro ? '<p class="erro">' + esc(CAM.erro) + '</p>' : '') +
+      '<p class="hist-nota">O login e a senha você digita na própria tela das câmeras (o navegador pode lembrar). A Central guarda só o link, criptografado.</p>' +
+      '<div class="botoes"><button class="btn btn-ouro" type="submit">Salvar</button>' +
+      (c.configurado ? '<button type="button" class="btn-mini" data-cam="voltar">Voltar</button><button type="button" class="btn-mini" data-cam="apagar">Tirar o link</button>' : '') + '</div></form>';
+  }
+
+  // posição: arrastando pela barra de cima (fica guardada); tela grande e posição padrão vêm do CSS
+  function aplicarPosCam(x, y) {
+    const el = camEl(), r = el.getBoundingClientRect();
+    el.style.left = Math.min(Math.max(0, x), Math.max(0, innerWidth - r.width)) + 'px';
+    el.style.top = Math.min(Math.max(0, y), Math.max(0, innerHeight - 44)) + 'px';
+    el.style.right = 'auto'; el.style.bottom = 'auto';
+  }
+  function posicionarCameras() {
+    const el = camEl();
+    el.style.left = el.style.top = el.style.right = el.style.bottom = '';
+    if (CAM.grande || CAM.tela !== 'video') return; // só o vídeo pequeno fica onde o dono arrastou
+    let pos = null;
+    try { pos = JSON.parse(localStorage.getItem(chavePosCam()) || 'null'); } catch (e) { pos = null; }
+    if (pos && Number.isFinite(pos.x) && Number.isFinite(pos.y)) aplicarPosCam(pos.x, pos.y);
+  }
+  (function () {
+    const topo = $('#cam-topo');
+    let arr = null;
+    topo.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('button') || CAM.grande || CAM.tela !== 'video') return;
+      const r = camEl().getBoundingClientRect();
+      arr = { id: e.pointerId, dx: e.clientX - r.left, dy: e.clientY - r.top, moveu: false };
+      try { topo.setPointerCapture(e.pointerId); } catch (er) { /* ignora */ }
+      camEl().classList.add('arrastando');
+    });
+    topo.addEventListener('pointermove', (e) => {
+      if (!arr || e.pointerId !== arr.id) return;
+      arr.moveu = true;
+      aplicarPosCam(e.clientX - arr.dx, e.clientY - arr.dy);
+    });
+    const soltar = () => {
+      if (!arr) return;
+      camEl().classList.remove('arrastando');
+      if (arr.moveu) { const r = camEl().getBoundingClientRect(); try { localStorage.setItem(chavePosCam(), JSON.stringify({ x: Math.round(r.left), y: Math.round(r.top) })); } catch (er) { /* ignora */ } }
+      arr = null;
+    };
+    topo.addEventListener('pointerup', soltar);
+    topo.addEventListener('pointercancel', soltar);
+    addEventListener('resize', () => { const el = camEl(); if (!el.hidden && el.style.left) { const r = el.getBoundingClientRect(); aplicarPosCam(r.left, r.top); } });
+  })();
+
+  // janela que fica por cima de todas as outras (Chrome e Edge no computador)
+  async function camerasPorCima() {
+    const c = CAM.cfg;
+    if (!window.documentPictureInPicture || !c || !c.url) return;
+    try {
+      const w = await window.documentPictureInPicture.requestWindow({ width: 560, height: 350 });
+      w.document.title = 'Câmeras da loja';
+      w.document.body.style.cssText = 'margin:0;background:#000;overflow:hidden';
+      const f = iframeCameras(w.document, c.url);
+      f.style.cssText = 'border:0;width:100vw;height:100vh;display:block';
+      w.document.body.append(f);
+      fecharCameras();
+    } catch (e) { nota('📹 Não consegui pôr as câmeras por cima: ' + e.message); }
+  }
+
+  camEl().addEventListener('click', (e) => {
+    const b = e.target.closest('[data-cam]');
+    if (!b) return;
+    const a = b.dataset.cam, c = CAM.cfg || {};
+    if (a === 'fechar') return fecharCameras();
+    if (a === 'tamanho') { CAM.grande = !CAM.grande; desenharCameras(); return posicionarCameras(); }
+    if (a === 'porcima') return camerasPorCima();
+    if (a === 'config') { CAM.rascunho = ''; CAM.erro = ''; return mostrarCameras('link'); }
+    if (a === 'voltar') { CAM.rascunho = ''; CAM.erro = ''; return abrirCameras({ depois: true }); }
+    if (a === 'janela') {
+      if (!c.url) return;
+      const abriu = janelaCameras(c.url);
+      if (CAM.tela === 'video' && abriu) return fecharCameras(); // não fica passando o vídeo duas vezes
+      CAM.abriuJanela = abriu || CAM.abriuJanela;
+      if (CAM.tela === 'janela') desenharCameras();
+      return;
+    }
+    if (a === 'conferir') {
+      b.disabled = true; b.textContent = 'Conferindo…';
+      chamar('painel?rota=cameras', { acao: 'conferir' }).then((d) => { CAM.cfg = d; abrirCameras({ depois: true }); })
+        .catch((er) => { b.disabled = false; b.textContent = '↻ Conferir de novo'; nota('📹 ' + er.message); });
+      return;
+    }
+    if (a === 'apagar') {
+      if (!confirm('Tirar o link das câmeras da Central?')) return;
+      chamar('painel?rota=cameras', { acao: 'apagar' }).then((d) => { CAM.cfg = d; CAM.rascunho = ''; atualizarChipCam(); mostrarCameras('link'); })
+        .catch((er) => { CAM.erro = er.message; desenharCameras(); });
+    }
+  });
+  camEl().addEventListener('submit', async (e) => {
+    const f = e.target.closest('[data-cam-form]');
+    if (!f) return;
+    e.preventDefault();
+    CAM.rascunho = f.elements.url.value;
+    const bt = f.querySelector('button[type="submit"]');
+    bt.disabled = true; bt.textContent = 'Conferindo o site…';
+    try {
+      CAM.cfg = await chamar('painel?rota=cameras', { acao: 'salvar', url: CAM.rascunho });
+      CAM.rascunho = ''; CAM.erro = '';
+      atualizarChipCam();
+      abrirCameras({ depois: true });
+    } catch (er) { CAM.erro = er.message; desenharCameras(); }
+  });
+  $('#conexoes').addEventListener('click', (e) => {
+    if (!e.target.closest('[data-abrir-cameras]')) return;
+    if (!camEl().hidden) return fecharCameras(); // o selo liga e desliga
+    abrirCameras();
+  });
+
+  // "abre as câmeras", "câmeras em tela grande", "trocar o link das câmeras": abre na hora, sem passar pela IA
+  // (o toque do dono conta para o navegador deixar abrir a janela)
+  function comandoCameras(texto) {
+    const t = String(texto || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[.!?]+$/g, '').replace(/\s+/g, ' ').trim()
+      .replace(/^(?:rb )?central[, ]+/, '').replace(/[, ]*por favor$/, '');
+    if (t.length > 60 || !/\bcameras?\b/.test(t)) return null;
+    if (/^(?:quero |vou )?(?:trocar|mudar|configurar|colocar|cadastrar|arrumar)\b.*\blink\b|\blink das cameras\b|^configurar (?:as )?cameras$/.test(t)) return { link: true };
+    const m = /^(?:(?:me )?(?:abr\w*|mostr\w*|ver|veja|liga\w*|quero ver|exib\w*|bota|coloca)\s+)?(?:as |a |minhas )?cameras?(?: da loja)?(?: (?:em )?(?:tela )?(grande|cheia|maior)| (por cima(?: de tudo)?))?$/.exec(t);
+    return m ? { grande: !!m[1], porCima: !!m[2] } : null;
+  }
+
   // ---------- Pedidos de peças: lista na conversa com botões de um toque para o fornecedor ----------
   const PEC = { lista: null, fornecedores: [], em: 0, carregando: null, erro: '', novo: false };
   const PEC_STATUS = { a_pedir: 'A pedir', cotando: 'Esperando o preço', pedido: 'Pedido ao fornecedor', chegou: 'Chegou', cancelado: 'Cancelado' };
@@ -833,11 +1056,15 @@
       vozNuvem = !!s.voz;
       if (cerebro) cerebro.status(s);
       zapAutomatico = !!s.whatsapp;
+      ultimoStatus = s;
       $('#conexoes').innerHTML = [['IA', s.ia], ['Site', s.site], ['CRM', s.crm], ['OS', s.sistema_os], ['Zap', s.whatsapp]]
         .map(([n, on]) => '<span class="con' + (on ? ' on' : '') + '">' + (on ? '● ' : '○ ') + n + '</span>').join('') +
         // ♫ Música: abre o painel do Spotify (conectar, tocar, volume)
-        '<button type="button" class="con con-mus' + (s.musica ? ' on' : '') + '" data-abrir-musica>' + (s.musica ? '♫ ' : '○ ') + 'Música</button>';
+        '<button type="button" class="con con-mus' + (s.musica ? ' on' : '') + '" data-abrir-musica>' + (s.musica ? '♫ ' : '○ ') + 'Música</button>' +
+        // 📹 Câmeras: abre e fecha o mini player das câmeras da loja
+        '<button type="button" class="con con-mus con-cam' + (s.cameras ? ' on' : '') + '" data-abrir-cameras>' + (s.cameras ? '📹 ' : '○ ') + 'Câmeras</button>';
       iniciarMusica(s.musica);
+      if (s.crm) carregarCameras(); // já deixa o link pronto: a janela das câmeras abre no mesmo toque
     } catch (e) { /* mostrado ao usar */ }
     sincronizar(true);
     carregarAvisos();
@@ -907,6 +1134,8 @@
   async function enviar(texto) {
     texto = String(texto || '').trim();
     if (!texto || ocupado) return;
+    const cam = comandoCameras(texto);
+    if (cam) { $('#msg').value = ''; crescer(); abrirCameras(cam); if (cerebro) cerebro.acender(['cameras_abrir']); return; }
     ocupado = true; $('#msg').value = ''; crescer();
     focoManual = false; // mandou mensagem: volta para a conversa para ver a resposta
     let novaResposta = null;
@@ -923,7 +1152,9 @@
       if ((d.usadas || []).some((u) => /^musica_/.test(u))) setTimeout(carregarMusica, 600); // a IA mexeu no som: atualiza o player
       novaResposta = { role: 'assistant', content: d.resposta };
       lista.push(novaResposta);
-      (d.acoes || []).forEach((a) => lista.push(a.tipo === 'catalogo' ? { tipo: 'catalogo', busca: a.busca || '', filtro: a.filtro || '' }
+      const camIA = (d.acoes || []).find((a) => a.tipo === 'cameras'); // a IA abriu as câmeras
+      if (camIA) abrirCameras({ grande: camIA.tamanho === 'grande', depois: true });
+      (d.acoes || []).filter((a) => a.tipo !== 'cameras').forEach((a) => lista.push(a.tipo === 'catalogo' ? { tipo: 'catalogo', busca: a.busca || '', filtro: a.filtro || '' }
         : a.tipo === 'pecas' ? { tipo: 'pecas' }
         : a.tipo === 'whatsapp' ? { tipo: 'zap', titulo: a.titulo, linhas: a.linhas, link: a.link }
           : { tipo: 'acao', token: a.token, titulo: a.titulo, linhas: a.linhas, em: Date.now(), link: a.link }));

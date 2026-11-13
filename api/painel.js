@@ -3,12 +3,14 @@
 //   /api/painel?rota=crm       CRM do WhatsApp (lib/rotas/crm.js)
 //   /api/painel?rota=catalogo  aparelhos do site (lib/rotas/catalogo.js)
 //   /api/painel?rota=pecas     pedidos de peças aos fornecedores (lib/rotas/pecas.js)
+//   /api/painel?rota=cameras   link das câmeras da loja (lib/rotas/cameras.js)
 // Os endereços antigos (/api/avisos, /api/crm, /api/catalogo) continuam funcionando pelo vercel.json.
 const rotas = {
   avisos: require('../lib/rotas/avisos'),
   crm: require('../lib/rotas/crm'),
   catalogo: require('../lib/rotas/catalogo'),
-  pecas: require('../lib/rotas/pecas')
+  pecas: require('../lib/rotas/pecas'),
+  cameras: require('../lib/rotas/cameras')
 };
 
 module.exports = (req, res) => {

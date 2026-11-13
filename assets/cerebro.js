@@ -63,6 +63,10 @@
       ['mu-proxima', 'Próxima', 'Pula para a próxima música', []],
       ['mu-volume', 'Volume', 'Abaixa um pouco o volume da música', []],
       ['mu-agora', 'Tocando', 'O que está tocando agora?', ['musica_status']]] },
+    { id: 'cameras', p: [-0.22, -0.6, 0.62], rotulo: 'Câmeras', sistema: 'cameras', pedido: 'Abre as câmeras', subs: [
+      ['cam-ver', 'Ao vivo', 'Abre as câmeras', ['cameras_abrir']],
+      ['cam-grande', 'Tela grande', 'Abre as câmeras em tela grande', []],
+      ['cam-link', 'Link', 'Trocar o link das câmeras', []]] },
     { id: 'vendas', p: [-0.4, -0.2, -0.82], rotulo: 'Vendas', sistema: 'os', pedido: 'Quais celulares tenho no estoque?', subs: [
       ['ve-vender', 'Vender', 'Quero registrar uma venda', ['venda_registrar']],
       ['ve-estoque', 'Estoque', 'Quais celulares tenho no estoque?', ['estoque_aparelhos']],
@@ -485,7 +489,7 @@
         est.alvoAlfa = est.modo === 'fundo' ? 0.35 : est.modo === 'login' ? 0.85 : 1;
       },
       // status: { site, crm, sistema_os } → acende/apaga os sistemas
-      status(s) { est.ligado = { site: !!(s && s.site), crm: !!(s && s.crm), os: !!(s && s.sistema_os), zap: !!(s && (s.whatsapp || s.crm_whatsapp)), musica: !!(s && s.musica) }; },
+      status(s) { est.ligado = { site: !!(s && s.site), crm: !!(s && s.crm), os: !!(s && s.sistema_os), zap: !!(s && (s.whatsapp || s.crm_whatsapp)), musica: !!(s && s.musica), cameras: !!(s && s.cameras) }; },
       pensando(sim) { est.pensando = !!sim; },
       // microfone ligado: o cérebro inteiro acende mais forte
       ouvindo(sim) { est.ouvindo = !!sim; },

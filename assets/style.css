@@ -340,3 +340,36 @@ body { background: #000; }
   .mini-player [data-mus="play"], .mini-player [data-mus="pausar"] { grid-column: 3; grid-row: 2; justify-self: center; }
   .mini-player [data-mus="proxima"] { grid-column: 4; grid-row: 2; justify-self: center; }
 }
+
+/* câmeras da loja: mini player flutuante (arrasta pela barra de cima; no computador largo fica na margem direita) */
+.cam-mini { position: fixed; z-index: 30; right: 16px; bottom: 96px; width: clamp(300px, calc((100vw - 860px) / 2 - 32px), 520px); background: rgba(12,11,9,.96); border: 1px solid #5c4a1a; border-radius: 16px; box-shadow: 0 16px 40px rgba(0,0,0,.6); overflow: hidden; display: flex; flex-direction: column; }
+.cam-mini.compacta { width: 340px; }
+.cam-topo { display: flex; align-items: center; gap: 4px; padding: 6px 6px 6px 12px; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; border-bottom: 1px solid var(--borda); }
+.cam-topo b { flex: 1; min-width: 0; font-size: 13px; color: var(--ouro); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cam-bt { flex: none; width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--borda); background: transparent; color: var(--texto); font-size: 14px; cursor: pointer; display: grid; place-items: center; padding: 0; }
+.cam-bt:hover { border-color: var(--ouro); color: var(--ouro); }
+.cam-corpo { display: flex; flex-direction: column; }
+.cam-corpo iframe { width: 100%; aspect-ratio: 16 / 10; border: 0; display: block; background: #000; }
+.cam-mini.arrastando iframe { pointer-events: none; }
+.cam-mini.arrastando .cam-topo { cursor: grabbing; }
+.cam-pe { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 10px; font-size: 11px; color: var(--apagado); }
+.cam-pe span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cam-pe button { flex: none; background: transparent; border: 0; color: var(--ouro); font: inherit; font-size: 11px; cursor: pointer; padding: 2px 0; }
+.cam-msg { margin: 0; padding: 14px 12px; }
+.cam-form, .cam-janela { display: grid; gap: 8px; padding: 12px; }
+.cam-form p, .cam-janela p { margin: 0; font-size: 13.5px; }
+.cam-form input { width: 100%; background: #0f0e0c; border: 1.5px solid var(--borda); color: var(--texto); border-radius: 12px; padding: 10px 12px; font: inherit; font-size: 16px; }
+.cam-form input:focus { outline: 0; border-color: var(--ouro); }
+.cam-mini .botoes { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.cam-mini .btn { padding: 10px 14px; }
+.cam-mini.grande { left: 50%; right: auto; top: 64px; bottom: auto; transform: translateX(-50%); width: min(1100px, 96vw); }
+.cam-mini.grande iframe { aspect-ratio: auto; height: min(74vh, calc(96vw * .62)); }
+.con-cam.on { color: var(--ouro); border-color: #5c4a1a; }
+@media (min-width: 1300px) { .cam-mini { bottom: 16px; } }
+@media (max-width: 760px) {
+  .cam-mini { right: 8px; bottom: calc(150px + env(safe-area-inset-bottom)); width: min(68vw, 340px); border-radius: 14px; }
+  .cam-mini.compacta, .cam-mini:has(.cam-form) { left: 8px; right: 8px; width: auto; }
+  .cam-mini.grande { left: 0; transform: none; width: 100vw; top: 56px; border-radius: 0; border-left: 0; border-right: 0; }
+  .cam-mini.grande iframe { height: min(70vh, calc(100vw * .75)); }
+  .cam-pe span { display: none; }
+}

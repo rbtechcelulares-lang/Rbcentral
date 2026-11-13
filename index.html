@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/style.css?v=23">
+  <link rel="stylesheet" href="assets/style.css?v=24">
 </head>
 <body>
   <!-- Cérebro 3D: ocupa a tela toda, atrás de tudo -->
@@ -102,6 +102,17 @@
     <main class="conversa" id="conversa" aria-live="polite"></main>
     <p class="cb-dica" id="cb-dica">Arraste para girar · toque num sistema ou numa função para perguntar</p>
     <div class="mini-player" id="mini-player" hidden></div>
+    <!-- Câmeras da loja: mini player flutuante (arraste pela barra de cima) -->
+    <div class="cam-mini" id="cameras" role="dialog" aria-label="Câmeras da loja" hidden>
+      <div class="cam-topo" id="cam-topo"><b>📹 Câmeras da loja</b>
+        <button type="button" class="cam-bt" data-cam="porcima" title="Janela por cima de tudo" aria-label="Janela por cima de tudo" hidden>⧉</button>
+        <button type="button" class="cam-bt" data-cam="janela" title="Abrir em outra janela" aria-label="Abrir em outra janela" hidden>↗</button>
+        <button type="button" class="cam-bt" data-cam="tamanho" title="Aumentar" aria-label="Aumentar ou diminuir" hidden>⤢</button>
+        <button type="button" class="cam-bt" data-cam="config" title="Trocar o link das câmeras" aria-label="Trocar o link das câmeras" hidden>⚙</button>
+        <button type="button" class="cam-bt" data-cam="fechar" title="Fechar" aria-label="Fechar as câmeras">✕</button>
+      </div>
+      <div class="cam-corpo" id="cam-corpo"></div>
+    </div>
     <form class="enviar" id="enviar">
       <textarea id="msg" rows="1" maxlength="2000" enterkeyhint="enter" placeholder="O que você precisa?"></textarea>
       <button type="button" class="btn-mic" id="mic" aria-label="Falar com o RB Central" aria-pressed="false">
@@ -111,7 +122,7 @@
     </form>
   </section>
 
-  <script src="assets/cerebro.js?v=14"></script>
-  <script src="assets/app.js?v=24"></script>
+  <script src="assets/cerebro.js?v=15"></script>
+  <script src="assets/app.js?v=25"></script>
 </body>
 </html>

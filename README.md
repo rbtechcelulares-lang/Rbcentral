@@ -115,7 +115,7 @@ Para isso, abra o Claude Code no repositório do sistema e use o prompt de
 ## Funções na Vercel (plano grátis: no máximo 12)
 
 A Central usa 9: `chat`, `confirmar`, `conversas`, `evento`, `login`, `painel`, `status`, `transcrever` e
-`whatsapp-webhook`. As telas do dono ficam todas em `/api/painel?rota=avisos|crm|catalogo|pecas`
+`whatsapp-webhook`. As telas do dono ficam todas em `/api/painel?rota=avisos|crm|catalogo|pecas|cameras`
 (código em `lib/rotas/`), e o aviso de status de OS entra por `/api/evento`. Os endereços antigos
 (`/api/os-status`, `/api/avisos`, `/api/crm`, `/api/catalogo`) continuam funcionando pelo `vercel.json`,
 então o sistema de OS não precisa mudar nada.
@@ -133,3 +133,19 @@ painel ♫ Música ou pedindo para a IA. Precisa de conta **Spotify Premium**.
 
 A autorização fica guardada no Supabase do site, criptografada com o segredo da Central. Usa a função
 `api/spotify` (a 10ª de 12 da Vercel grátis).
+
+## Câmeras da loja
+
+O selo **📹 Câmeras** no topo (ou "abre as câmeras", escrito, falado ou pelo neurônio Câmeras) abre um
+mini player com o site das câmeras, usando o link direto que a empresa de monitoramento passou.
+
+1. Toque em 📹 Câmeras e cole o link. A Central guarda **só o link**, criptografado, no Supabase do site
+   (tabela `central_config`; se ainda não existir, rode o SQL de novo).
+2. O login e a senha das câmeras você digita na própria tela delas, dentro do mini player. A Central
+   nunca vê nem guarda esse acesso; o navegador pode lembrar.
+3. Ao salvar, a Central confere se o site das câmeras deixa abrir dentro de outra página. Se deixar,
+   elas aparecem no mini player (arraste pela barra, ⤢ aumenta, ⧉ deixa por cima de tudo no Chrome do
+   computador). Se não deixar, abrem numa janelinha separada (no celular, outra aba).
+
+A IA só abre o player (`cameras_abrir`); ela não vê as imagens. Não usa função nova da Vercel.
+
