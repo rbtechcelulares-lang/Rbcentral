@@ -11,8 +11,9 @@ de clientes: a Central gera um cupom para cada cliente que comprou celular nos d
 ## GET /api/central/vendas?desde=AAAA-MM-DD&ate=AAAA-MM-DD&limite=1000
 
 - `desde` e `ate`: datas no horário de Brasília, as duas inclusive (`ate` vale o dia inteiro, até 23:59).
-- Traga todas as vendas do período: as da "Venda de Produtos" (o que aparece em Venda de Produtos ›
-  Histórico) e as de aparelhos ("Vender / troca"), de todos os vendedores.
+- Use os mesmos dados da tela **Venda de Produtos › Histórico** (número, data e hora, forma de
+  pagamento, quem comprou, itens e total), e inclua também as vendas de aparelhos feitas por
+  "Vender / troca", se elas ficarem em outro lugar. Todas as vendas do período, de todos os vendedores.
 - Só vendas da loja `CENTRAL_LOJA`. Ordem: da mais antiga para a mais nova. `limite` padrão 1000.
 
 Resposta:
@@ -43,12 +44,14 @@ Resposta:
 ## Regras
 
 - `tipo` de cada item:
-  - `"aparelho"` quando o item é um celular do estoque de Aparelhos (vendido pela Venda de Produtos ou
-    por Vender / troca);
+  - `"aparelho"` quando o item é um celular do estoque (a parte "Celulares" da Venda de Produtos, ou
+    Vender / troca), mesmo que o texto do item no Histórico não tenha o nome do modelo. Nesse caso,
+    mande em `descricao` o modelo do aparelho do estoque (marca, modelo, armazenamento e cor);
   - `"produto"` para acessórios e produtos cadastrados;
   - `"avulso"` para item digitado na hora, sem cadastro.
 - `descricao`: o texto do item como aparece no Histórico (para aparelho: marca, modelo, armazenamento e cor).
-- `cliente`: o cliente vinculado à venda, com o WhatsApp com DDI + DDD, só números. Se o cliente foi
+- `cliente`: quem comprou, ou seja, o nome que aparece no selo com o ícone de pessoa em cada venda do
+  Histórico, com o WhatsApp do cadastro desse cliente (DDI + DDD, só números). Se o cliente foi
   digitado só como nome, mande o nome e `"whatsapp": ""`. Se a venda não tem cliente, mande
   `"cliente": null`. Nunca ponha o nome da loja ou do vendedor no lugar do cliente.
 - `criado_em` em ISO 8601 com o fuso de Brasília (`-03:00`).
