@@ -56,6 +56,7 @@ Toda chamada vem com o cabeçalho `Authorization: Bearer <SAAS_API_TOKEN>`.
 | GET | `/aparelhos` | `?status=&busca=&limite=30` | `{ "aparelhos": [APARELHO, ...] }` (celulares do estoque) |
 | POST | `/aparelhos` | `{ "marca", "modelo", "armazenamento", "cor", "imei", "condicao": "novo" ou "seminovo", "bateria": % ou null, "custo", "preco_venda", "origem": "compra" ou "troca" ou "outro", "fornecedor_ou_cliente", "observacoes" }` | `{ "aparelho": APARELHO }` (entra no estoque no status inicial de aparelhos do sistema, ex.: Preparação) |
 | GET | `/produtos` | `?busca=&limite=30` | `{ "produtos": [{ "id", "loja", "nome", "preco", "estoque" }] }` (acessórios e produtos da Venda de Produtos) |
+| GET | `/vendas` | `?desde=AAAA-MM-DD&ate=AAAA-MM-DD&limite=1000` (Brasília, inclusive) | `{ "vendas": [VENDA, ...] }` (para o sorteio de clientes; prompt: `docs/PROMPT-VENDAS-LISTA.md`) |
 | POST | `/vendas` | ver **Venda** abaixo | `{ "venda": { "id", "loja", "numero", "total", "criado_em" }, "aparelho_troca": APARELHO ou null }` |
 | GET | `/relatorio` | `?dia=AAAA-MM-DD` (Brasília) | `{ "dia", "os_abertas", "os_criadas_no_dia", "os_concluidas_no_dia", "faturamento_dia", "recebido_dia", "ticket_medio", "pedidos_pecas_pendentes", "metas": [...] }` |
 
@@ -78,6 +79,8 @@ tipo estão em `docs/PROMPT-EVENTOS.md`. A Central monta a mensagem para o dono 
 Central, a Central chama `POST /api/central/eventos/enviado` com `{ "tipo", "id", "status" }` (o `id` e o
 `tipo` são os que o sistema mandou no evento; em status, `id` é o id da OS) e o sistema responde
 `{ "loja": "rbtechcelulares", "ok": true }`, marcando como enviada para não oferecer de novo.
+
+**VENDA** (lista) = `{ "id", "loja", "numero", "criado_em" (ISO com -03:00), "cancelada", "vendedor", "cliente": {"nome", "whatsapp"} ou null, "itens": [{ "tipo": "aparelho" | "produto" | "avulso", "descricao", "quantidade", "valor", "aparelho_id" }], "total", "pagamentos": [{ "forma", "valor" }] }`
 
 **APARELHO** = `{ "id", "loja", "marca", "modelo", "armazenamento", "cor", "imei", "condicao", "bateria", "status", "custo", "preco_venda", "entrada_em" }`
 

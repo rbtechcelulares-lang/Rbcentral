@@ -71,7 +71,8 @@
       ['ve-vender', 'Vender', 'Quero registrar uma venda', ['venda_registrar']],
       ['ve-estoque', 'Estoque', 'Quais celulares tenho no estoque?', ['estoque_aparelhos']],
       ['ve-acess', 'Acessórios', 'Quais acessórios tenho em estoque?', ['produtos_listar']],
-      ['ve-troca', 'Troca', 'Quero cadastrar no estoque um aparelho que entrou na troca', ['aparelho_cadastrar']]] }
+      ['ve-troca', 'Troca', 'Quero cadastrar no estoque um aparelho que entrou na troca', ['aparelho_cadastrar']],
+      ['ve-sorteio', 'Sorteio', 'Faz os cupons do sorteio com as vendas de celular de hoje', ['sorteio_cupons', 'sorteio_sortear']]] }
   ];
   // ferramenta da IA → neurônios que acendem (o mini neurônio e o sistema dele)
   const FERRAMENTA_ABA = { relatorio_do_dia: ['nucleo', 'cliques', 'cq-visitas', 'cq-propostas', 'cq-vistos'] };
